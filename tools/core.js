@@ -519,7 +519,7 @@ function payloadNewsletter(S) {
         points_per_captain: stat(+capTop[0]).pts * 2, points_per_triple_captain: stat(+capTop[0]).pts * 3 },
       top_scorers_owned_in_league: owned.slice(0, 5).map(player),
       league_most_bought: leagueFav && { ...player(leagueFav[0]), bought_by: leagueFav[1] },
-      global_most_bought: globalFav && { ...player(globalFav.id), global_transfers_in: globalFav.raw[13] },
+      /* FPL only gives global transfer counts for the open transfer window, not a finished gameweek, so there is no global most-bought figure. */
       differentials: w.differentials.map((d) => ({ player: d.player, club: d.team, points: d.pts, only_starter: d.m.name })),
       captains_used: capRows.length,
     },

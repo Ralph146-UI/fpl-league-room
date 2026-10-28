@@ -22,7 +22,7 @@ Return JSON only, exactly this shape:
 - **intro**: the average and median (both after hits, as given), how many reached 90+, the top scorer, and one dry line.
 - **managers_column**: the top three and the gaps; Manager of the Week; the biggest risers; the biggest fallers (name the captain if it explains the drop). One fact-heavy sentence and one dry line per bullet.
 - **transfer_chip_column**: one bullet per chip type played (how many, on whom for triple captains, best and worst score), then the week's best and worst transfers if notable.
-- **players_column**: the most-captained player (goals, bonus, opponent, what captains and triple captains got); the most-bought player in the league and how that went; the global most-bought player if he is different; then how the week's results shaped the table.
+- **players_column**: the most-captained player (goals, bonus, opponent, what captains and triple captains got); the most-bought player in the league and how that went; then how the week's results shaped the table.
 
 ## Rules
 
@@ -44,4 +44,4 @@ The average GW7 score was 66.4 points and the median was 67. Three managers reac
 
 Erling Haaland scored twice, earned maximum bonus and returned 13 points against Ipswich. His 39-point Triple Captain return rewarded the managers who pressed the button, while the rest of his captainers received the safer 26. Haaland did not merely cover the template; he became the template.
 
-Rayan Cherki was the global Gameweek 7 transfer favourite but remained an unused substitute and returned zero. In this league, 11 managers bought Cherki; those moves provided the classic FPL experience of paying for a premium seat and watching from outside the stadium.
+Rayan Cherki remained an unused substitute and returned zero. In this league, 11 managers bought Cherki; those moves provided the classic FPL experience of paying for a premium seat and watching from outside the stadium.
