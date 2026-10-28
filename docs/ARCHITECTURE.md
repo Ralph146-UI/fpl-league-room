@@ -4,7 +4,7 @@
 | --- | --- |
 | **Version** | 1.0 |
 | **Date** | 28 October 2026 |
-| **Git tag** | `v1.0` (restore with `git checkout v1.0`) |
+| **Saved as** | Branch `v1.0` on GitHub, frozen at this version. To go back: open the branch on GitHub, or `git checkout v1.0`. |
 | **State** | Live. Gameweek 8 complete; report and newsletter produced automatically. |
 | **Owner** | Rahul Chadha |
 
