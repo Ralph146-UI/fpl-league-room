@@ -30,7 +30,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CACHE = HERE / ".fpl_cache"
 BASE = "https://fantasy.premierleague.com/api"
-MAX_MANAGERS = 60
+MAX_MANAGERS = 150
 
 
 def fail(msg):
@@ -116,6 +116,7 @@ def main():
         if not s["standings"]["has_next"] or len(rows) >= MAX_MANAGERS:
             break
         page += 1
+    total_managers = len(rows) if not s["standings"]["has_next"] else None
     if len(rows) > MAX_MANAGERS:
         print(f"Note: the league has more than {MAX_MANAGERS} managers. Keeping the top {MAX_MANAGERS}.")
         rows = rows[:MAX_MANAGERS]
@@ -151,7 +152,7 @@ def main():
     bundle = {
         "v": 1,
         "fetched": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
-        "league": {"id": meta["id"], "name": meta["name"]},
+        "league": {"id": meta["id"], "name": meta["name"], "complete": total_managers is not None and total_managers <= MAX_MANAGERS},
         "gw": gw,
         "squad_gw": squad_gw,
         "events": [{"id": e["id"], "avg": e.get("average_entry_score"), "high": e.get("highest_score"),
