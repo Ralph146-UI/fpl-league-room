@@ -123,20 +123,7 @@ def captain_history(managers_rows, done_gws, path):
     return hist
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Fetch an FPL mini-league for FPL League Room")
-    ap.add_argument("league_id", type=int, nargs="?")
-    ap.add_argument("--gw", type=int, help="gameweek to report on (default: latest final one)")
-    ap.add_argument("--out", default=None)
-    args = ap.parse_args()
-    settings = HERE / "settings.json"
-    if args.league_id is None and settings.exists():
-        args.league_id = json.loads(settings.read_text()).get("league_id")
-    if not args.league_id:
-        fail("no league id. Put it in settings.json (\"league_id\": 123456) or pass it: python3 fpl_fetch.py 123456")
-    if args.out is None:
-        args.out = "data/fpl_bundle.json" if (HERE / "data").is_dir() else "fpl_bundle.json"
-
+def run_one(args):
     bs = get("/bootstrap-static/")
     events = bs["events"]
     checked = [e["id"] for e in events if e.get("finished") and e.get("data_checked")]
@@ -245,6 +232,37 @@ def main():
     print(f"\nWrote {args.out} ({out.stat().st_size // 1024} KB): {meta['name']}, gameweek {gw}"
           + ("" if final else " (NOT final yet: bonus points may still change)") + ".")
     print("Drop it onto the FPL League Room page.\n")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Fetch FPL mini-leagues for FPL League Room")
+    ap.add_argument("league_id", type=int, nargs="?")
+    ap.add_argument("--gw", type=int, help="gameweek to report on (default: latest final one)")
+    ap.add_argument("--out", default=None)
+    args = ap.parse_args()
+    settings = HERE / "settings.json"
+    cfg = json.loads(settings.read_text()) if settings.exists() else {}
+    if args.league_id:
+        leagues = [args.league_id]
+    else:
+        leagues = [cfg.get("league_id")] + [x for x in cfg.get("other_leagues", []) if x != cfg.get("league_id")]
+        leagues = [x for x in leagues if x]
+    if not leagues:
+        fail("no league id. Put it in settings.json (\"league_id\": 123456) or pass it: python3 fpl_fetch.py 123456")
+    if args.gw:
+        leagues = leagues[:1]  # a past gameweek is only fetched for the main league
+    data_dir = "data/" if (HERE / "data").is_dir() else ""
+    for i, lid in enumerate(leagues):
+        out = args.out if (args.out and i == 0) else (f"{data_dir}fpl_bundle.json" if i == 0 else f"{data_dir}fpl_bundle_{lid}.json")
+        one = argparse.Namespace(league_id=lid, gw=args.gw, out=out)
+        if i == 0:
+            run_one(one)
+        else:
+            # A problem with an extra league must not stop the main one being saved.
+            try:
+                run_one(one)
+            except SystemExit as e:
+                print(f"Skipped league {lid}: {e}")
 
 
 if __name__ == "__main__":

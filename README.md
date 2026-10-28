@@ -16,6 +16,7 @@ Edit `settings.json` on GitHub (pencil icon, then Commit changes):
 | Setting | What it does |
 | --- | --- |
 | `league_id` | Your classic league's number, from `fantasy.premierleague.com/leagues/<number>/standings/c`. **Changes every season.** |
+| `other_leagues` | Extra leagues to fetch, e.g. `[782455]`. They show on the page's league picker; the report and newsletter stay with the main league. |
 | `report.enabled` | `false` to just refresh the data with no report. |
 | `report.voice` | `banter`, `pundit`, `manager` or `plain` (the files in `personas/`). |
 | `report.running_joke_about` | A manager's name for the running joke, or `""`. |

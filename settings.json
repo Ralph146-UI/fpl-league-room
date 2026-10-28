@@ -1,5 +1,8 @@
 {
   "league_id": 554519,
+  "other_leagues": [
+    782455
+  ],
   "report": {
     "enabled": true,
     "voice": "banter",
