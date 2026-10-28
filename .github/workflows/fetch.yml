@@ -1,10 +1,16 @@
 name: Fetch FPL league
 
 # Every morning at 06:17 UTC, plus a "Run workflow" button on the Actions tab.
+# The button can fetch a past gameweek into its own file (leave it blank for the normal fetch).
 on:
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
+    inputs:
+      gw:
+        description: "Past gameweek to fetch into data/fpl_bundle_gwN.json (blank = normal fetch)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -16,7 +22,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -25,16 +31,24 @@ jobs:
           python-version: "3.12"
 
       - name: Fetch the league
-        run: python fpl_fetch.py
+        env:
+          GW: ${{ github.event.inputs.gw }}
+        run: |
+          if [ -n "$GW" ]; then
+            python fpl_fetch.py --gw "$GW" --out "data/fpl_bundle_gw$GW.json"
+          else
+            python fpl_fetch.py
+          fi
 
       - name: Save the data
         run: |
           git config user.name "fpl-bot"
           git config user.email "fpl-bot@users.noreply.github.com"
-          git add data/fpl_bundle.json
+          git add data/*.json
           if git diff --cached --quiet; then
             echo "Nothing new."
           else
             git commit -m "League data $(date -u +%Y-%m-%d)"
+            git pull --rebase -q
             git push
           fi

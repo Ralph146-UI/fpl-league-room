@@ -81,6 +81,48 @@ def picks_rows(p):
     }
 
 
+def captain_history(managers_rows, done_gws, path):
+    """Season captaincy per manager, kept in a file so each run only fetches new gameweeks.
+    Stored per gameweek as [element, multiplier, points the armband delivered]."""
+    hist = {}
+    if path.exists():
+        try:
+            hist = json.loads(path.read_text())
+        except ValueError:
+            hist = {}
+    lives = {}
+
+    def live_pts(g):
+        if g not in lives:
+            lv = get(f"/event/{g}/live/", ttl=86400) or {"elements": []}
+            lives[g] = {x["id"]: x["stats"].get("total_points", 0) for x in lv.get("elements", [])}
+        return lives[g]
+
+    todo = [(r["entry"], g) for r in managers_rows for g in done_gws if str(g) not in hist.get(str(r["entry"]), {})]
+    for g in sorted({g for _, g in todo}):
+        live_pts(g)
+
+    def one(job):
+        e, g = job
+        p = get(f"/entry/{e}/event/{g}/picks/", ttl=86400)
+        if not p:
+            return e, g, None
+        arm = [x for x in p.get("picks", []) if x["multiplier"] >= 2]
+        if not arm:
+            return e, g, [None, 0, 0]
+        a = max(arm, key=lambda x: x["multiplier"])
+        return e, g, [a["element"], a["multiplier"], lives[g].get(a["element"], 0) * a["multiplier"]]
+
+    if todo:
+        print(f"Fetching {len(todo)} past captain picks...")
+    for e, g, row in pmap(one, todo):
+        if row is not None:
+            hist.setdefault(str(e), {})[str(g)] = row
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(hist, separators=(",", ":")))
+    return hist
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fetch an FPL mini-league for FPL League Room")
     ap.add_argument("league_id", type=int, nargs="?")
@@ -148,6 +190,14 @@ def main():
 
     live = get(f"/event/{gw}/live/") or {"elements": []}
     fixtures = get("/fixtures/?future=1") or []
+    gw_fixtures = get(f"/fixtures/?event={gw}") or []
+
+    out = HERE / args.out
+    done = sorted(e["id"] for e in events if e.get("finished") and e.get("data_checked") and e["id"] <= gw)
+    caps = captain_history(rows, done, out.parent / "captains.json")
+    for m in managers:
+        c = caps.get(str(m["entry"]), {})
+        m["captains"] = [[int(g)] + c[g] for g in sorted(c, key=int) if int(g) <= gw]
 
     bundle = {
         "v": 1,
@@ -160,18 +210,21 @@ def main():
                     "current": bool(e.get("is_current")), "next": bool(e.get("is_next")),
                     "deadline": e.get("deadline_time")} for e in events],
         "teams": [[t["id"], t["short_name"], t["name"]] for t in bs["teams"]],
-        # [id, web_name, team, position(1-4), now_cost, form, ppg, minutes, status, chance_next, news, selected_by, total_points]
+        # [id, web_name, team, position(1-4), now_cost, form, ppg, minutes, status, chance_next, news, selected_by, total_points, transfers_in_event]
         "elements": [[e["id"], e["web_name"], e["team"], e["element_type"], e["now_cost"], float(e["form"] or 0),
                       float(e["points_per_game"] or 0), e["minutes"], e["status"], e.get("chance_of_playing_next_round"),
-                      e.get("news") or "", float(e["selected_by_percent"] or 0), e["total_points"]]
+                      e.get("news") or "", float(e["selected_by_percent"] or 0), e["total_points"], e.get("transfers_in_event", 0)]
                      for e in bs["elements"]],
         "fixtures": [[f["event"], f["team_h"], f["team_a"], f["team_h_difficulty"], f["team_a_difficulty"]]
                      for f in fixtures if f.get("event")],
-        "live": {str(x["id"]): [x["stats"].get("total_points", 0), x["stats"].get("minutes", 0)]
+        # [points, minutes, goals, assists, bonus, clean_sheet]
+        "live": {str(x["id"]): [x["stats"].get("total_points", 0), x["stats"].get("minutes", 0), x["stats"].get("goals_scored", 0),
+                                x["stats"].get("assists", 0), x["stats"].get("bonus", 0), x["stats"].get("clean_sheets", 0)]
                  for x in live.get("elements", []) if x["stats"].get("minutes", 0) or x["stats"].get("total_points", 0)},
+        # [home team, away team, home score, away score]
+        "gw_fixtures": [[f["team_h"], f["team_a"], f.get("team_h_score"), f.get("team_a_score")] for f in gw_fixtures],
         "managers": managers,
     }
-    out = HERE / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(bundle, ensure_ascii=False, separators=(",", ":")))
     final = gw in checked
