@@ -122,6 +122,7 @@ To rebuild the page: `python3 page/build.py`, then publish `page/fpl-league-room
 - **Needs:** per-player gameweek history (`element-summary/{id}/`, about 450 requests a day on GitHub).
 - **Outputs:** fixture predictions, top expected points by position, captain picks, a predicted podium for each league from managers' actual squads, and a **scorecard** comparing predictions with results each gameweek.
 - **Open question:** whether forecasts and the scorecard appear in the newsletter or only on the page.
+- **Parked 28 October 2026.** A review of this spec, with proposed changes (fewer API calls, frozen predictions, a baseline for the scorecard, a projected podium), is in `docs/forecast-design-proposal.md`. Read it before building.
 
 Later, if wanted: news context from the Premier League's "The Scout" (summarised, linked and kept separate from checked figures).
 
