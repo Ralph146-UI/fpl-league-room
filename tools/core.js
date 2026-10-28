@@ -412,6 +412,73 @@ function payloadAdvice(S, A) {
   };
 }
 
+/* ------------------------------------------------------------ insights: teams, positions, players */
+
+/* Season performance from FPL's own player and match data, set against what this league owns. */
+function playerInsights(S) {
+  const stats = new Map((S.b.stats || []).map((r) => [r[0], { goals: r[1], assists: r[2], cs: r[3], gc: r[4], bonus: r[5], xg: r[6], xa: r[7], xgi: r[8], starts: r[9], saves: r[10], bps: r[11], dc: r[12] }]));
+  if (!stats.size) return null;
+  const N = S.M.length;
+  /* league ownership: players in each manager's latest squad */
+  const own = {};
+  S.M.forEach((m) => { const sq = m.squad || m.picks; if (sq) sq.picks.forEach((p) => { own[p[0]] = (own[p[0]] || 0) + 1; }); });
+
+  const players = [...S.P.values()].filter((p) => stats.has(p.id) && p.mins > 0).map((p) => {
+    const s = stats.get(p.id);
+    return {
+      id: p.id, name: p.name, club: teamShort(S, p.team), teamId: p.team, pos: POS[p.pos], posN: p.pos, cost: p.cost, pts: p.total, form: p.form, mins: p.mins,
+      ppm: r1(p.total / p.cost), per90: p.mins >= 90 ? r1(p.total / p.mins * 90) : null,
+      goals: s.goals, assists: s.assists, ga: s.goals + s.assists, xgi: r1(s.xgi), gaVsXgi: r1(s.goals + s.assists - s.xgi), xg: r1(s.xg), goalsVsXg: r1(s.goals - s.xg),
+      cs: s.cs, bonus: s.bonus, starts: s.starts, dc: s.dc, saves: s.saves,
+      leagueOwn: own[p.id] || 0, leagueOwnPct: Math.round((own[p.id] || 0) / N * 100), globalOwn: p.own, news: p.news,
+    };
+  });
+
+  /* teams from match results */
+  const teams = new Map([...S.teams.entries()].map(([id, t]) => [id, { id, club: t.short, name: t.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, cs: 0, pts: 0, fplPts: 0, form: [] }]));
+  (S.b.results || []).slice().sort((a, b) => a[0] - b[0]).forEach(([ev, h, a, hs, as]) => {
+    if (hs == null || as == null) return;
+    const H = teams.get(h), A = teams.get(a); if (!H || !A) return;
+    H.p++; A.p++; H.gf += hs; H.ga += as; A.gf += as; A.ga += hs;
+    if (as === 0) H.cs++; if (hs === 0) A.cs++;
+    const rH = hs > as ? "W" : hs < as ? "L" : "D", rA = hs > as ? "L" : hs < as ? "W" : "D";
+    H[rH.toLowerCase()]++; A[rA.toLowerCase()]++; H.form.push(rH); A.form.push(rA);
+    H.pts += rH === "W" ? 3 : rH === "D" ? 1 : 0; A.pts += rA === "W" ? 3 : rA === "D" ? 1 : 0;
+  });
+  players.forEach((p) => { const t = teams.get(p.teamId); if (t) t.fplPts += p.pts; });
+  const nextGws = [nextGw(S), nextGw(S) + 1, nextGw(S) + 2];
+  const teamRows = [...teams.values()].map((t) => {
+    const top = players.filter((p) => p.teamId === t.id).sort((a, b) => b.pts - a.pts)[0];
+    const fx = S.b.fixtures.filter((f) => nextGws.includes(f[0]) && (f[1] === t.id || f[2] === t.id)).sort((a, b) => a[0] - b[0])
+      .map((f) => (f[1] === t.id ? { opp: teamShort(S, f[2]), venue: "H", diff: f[3] } : { opp: teamShort(S, f[1]), venue: "A", diff: f[4] }));
+    return { ...t, gd: t.gf - t.ga, form: t.form.slice(-5).join(""), top: top ? { name: top.name, pts: top.pts } : null, leagueOwn: sum(players.filter((p) => p.teamId === t.id).map((p) => p.leagueOwn)), next: fx };
+  }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+
+  /* positions: where the points come from, overall and in this league's squads */
+  const posRows = [1, 2, 3, 4].map((k) => {
+    const ps = players.filter((p) => p.posN === k);
+    const regulars = ps.filter((p) => p.mins >= 90 * Math.max(1, S.gw) * 0.5);
+    const top5 = ps.slice().sort((a, b) => b.pts - a.pts).slice(0, 5);
+    const ownedPts = sum(ps.map((p) => p.pts * p.leagueOwn));
+    return {
+      pos: POS[k], players: ps.length, regulars: regulars.length,
+      avgPts: regulars.length ? r1(mean(regulars.map((p) => p.pts))) : null,
+      avgPpm: regulars.length ? r1(mean(regulars.map((p) => p.ppm))) : null,
+      top5Pts: sum(top5.map((p) => p.pts)), best: top5[0] ? { name: top5[0].name, club: top5[0].club, pts: top5[0].pts } : null,
+      bestValue: regulars.slice().sort((a, b) => b.ppm - a.ppm)[0] || null,
+      ownedPts,
+    };
+  });
+  const totalOwned = sum(posRows.map((r) => r.ownedPts)) || 1;
+  posRows.forEach((r) => (r.ownedShare = Math.round(r.ownedPts / totalOwned * 100)));
+
+  /* the league against reality */
+  const byPts = players.slice().sort((a, b) => b.pts - a.pts);
+  const missing = byPts.slice(0, 40).filter((p) => p.leagueOwnPct < 15).slice(0, 6);
+  const leagueFavs = players.filter((p) => p.leagueOwnPct >= 25).sort((a, b) => a.ppm - b.ppm).slice(0, 6);
+  return { players, teams: teamRows, positions: posRows, missing, leagueFavs, managers: N };
+}
+
 /* ------------------------------------------------------------ newsletter */
 
 /* Every figure in the newsletter, in one place. The written columns are
@@ -642,4 +709,4 @@ function demoBundle() {
 }
 function S_pos(elements, id) { const e = elements.find((x) => x[0] === id); return e ? e[3] : 1; }
 
-if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
+if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, playerInsights, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
