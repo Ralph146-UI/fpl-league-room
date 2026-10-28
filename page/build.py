@@ -3,8 +3,9 @@
 
     python3 page/build.py      (from the repo root)
 
-It inlines three things into page.html: the fetch script (offered on the Data tab),
-tools/core.js (every calculation, shared with the scheduled task) and page/ui.js.
+It inlines these into page.html: the fetch script (offered on the Data tab),
+tools/core.js (every calculation, shared with the scheduled task), tools/email.js
+(the newsletter as a pasteable email) and page/ui.js.
 Output: page/fpl-league-room.built.html
 """
 from pathlib import Path
@@ -23,6 +24,7 @@ h = (h.replace("__FETCH_SRC__", fetch)
       .replace("__NL_VOICE__", voice)
       .replace("__NL_TONES__", tones)
       .replace("__CORE_JS__", (ROOT / "tools" / "core.js").read_text())
+      .replace("__EMAIL_JS__", (ROOT / "tools" / "email.js").read_text())
       .replace("__UI_JS__", (PAGE / "ui.js").read_text()))
 assert "__NL_" not in h
 out = PAGE / "fpl-league-room.built.html"

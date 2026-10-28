@@ -281,6 +281,8 @@ details summary{cursor:pointer;color:var(--accent);font-size:.88rem}
 .nl-tone-row p{flex:1 1 16em;margin:0;font-size:.86rem}
 .nl-redo{display:flex;gap:6px;align-items:center;font-size:.84rem}
 .nl-preview{border:2px dashed var(--fpl-green);border-radius:8px;padding:8px}
+/* The email version is always shown on white, as recipients will see it. */
+.nl-email{background:#ffffff;color:#1a1a1a;color-scheme:light;border:1px solid var(--line);border-radius:6px;padding:16px;overflow-x:auto}
 footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;margin-top:8px}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
@@ -456,7 +458,15 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
         <p class="msg" id="nl-tone-msg"></p>
         <p class="muted" style="font-size:.8rem">Only you see this. The preview runs on your Claude usage and isn't saved; the morning task writes the real issue in the tone you choose and checks every number.</p>
       </div>
-      <div class="nl-actions"><button class="btn primary" type="button" id="nl-save" hidden>Save the Word file</button><span class="msg" id="nl-msg"></span></div>
+      <div class="nl-actions">
+        <button class="btn primary" type="button" id="nl-email-copy" hidden>Copy for email</button>
+        <button class="btn" type="button" id="nl-email-view" hidden aria-pressed="false">Show the email version</button>
+        <button class="btn" type="button" id="nl-email-save" hidden>Save email file (.html)</button>
+        <button class="btn" type="button" id="nl-save" hidden>Save the Word file</button>
+        <span class="msg" id="nl-msg"></span>
+      </div>
+      <p class="muted" id="nl-email-note" hidden style="font-size:.82rem">Copy for email puts the newsletter on your clipboard as tables built for email. In a new email, click where it should go and paste (Ctrl+V, or Cmd+V on a Mac). It copies whatever is showing, so a tone preview can be sent too.</p>
+      <div id="nl-email" class="nl-email" hidden></div>
       <div id="nl-body"><p class="muted">No newsletter yet. The first one appears here after the daily task has run for a finished gameweek.</p></div>
     </section>
   </div>
@@ -578,6 +588,9 @@ Persona: plain and friendly. Write like a well-informed friend summarising the l
 <script type="application/json" id="t-nl-tones">__NL_TONES__</script>
 <script>
 __CORE_JS__
+</script>
+<script>
+__EMAIL_JS__
 </script>
 <script>
 __UI_JS__

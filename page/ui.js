@@ -145,6 +145,8 @@ function showMainOnly() {
   const main = LEAGUES.find((x) => x.primary);
   const note = !isMain() && main ? `The weekly report and newsletter are written for ${main.name}. Switch to it in the bar at the top to see them.` : "";
   $("#auto-wrap").hidden = true;
+  EMAIL_NOW = null;
+  ["#nl-email-copy", "#nl-email-view", "#nl-email-save", "#nl-email-note", "#nl-email"].forEach((s) => ($(s).hidden = true));
   if (isMain()) {
     if (REPORT) showAutoReport(REPORT);
     if (NEWS) showNewsletter(NEWS);
@@ -220,7 +222,7 @@ async function previewTone(F, key) {
     const m = (r.text || "").match(/\{[\s\S]*\}/);
     const cols = m ? JSON.parse(m[0]) : null;
     if (!cols || typeof cols.intro !== "string") throw { code: "bad_json" };
-    showNewsletter({ ...NEWS, columns: JSON.stringify(cols), check: "" });
+    showNewsletter({ ...NEWS, columns: JSON.stringify(cols), check: "", preview: { label: t.label } });
     const flat = [cols.intro, ...(cols.managers_column || []), ...(cols.transfer_chip_column || []), ...(cols.players_column || [])].join("\n");
     const nc = numberCheck(flat, F);
     $("#nl-body").firstElementChild.classList.add("nl-preview");
@@ -282,6 +284,7 @@ function showNewsletter(n) {
     <div class="nl-box solo"><h3 style="margin-top:0">Players Column</h3>${(Cl.players_column || []).map((t) => `<p>${rich(t)}</p>`).join("")}</div>
     ${n.check ? `<p class="check ${/match/i.test(n.check) && !/check before/i.test(n.check) ? "ok" : "flag"}" style="padding:0">${esc(n.check)}</p>` : ""}
   </div>`;
+  setupEmail(F, Cl, !!n.preview);
   const btn = $("#nl-save");
   if (CAP.downloads && n.docx_b64) {
     btn.hidden = false;
@@ -293,6 +296,64 @@ function showNewsletter(n) {
       catch (e) { msg.className = "msg"; msg.textContent = e && e.code === "declined" ? "" : "Couldn't save it here. The Word file is also in your GitHub repo under data/newsletters."; }
     };
   }
+}
+
+/* ------------------------------------------------------------ newsletter as an email (pasted by hand) */
+
+let EMAIL_NOW = null;
+function setupEmail(F, Cl, isPreview) {
+  const ok = typeof emailNewsletter === "function" && IS_OWNER;
+  EMAIL_NOW = ok ? { ...emailNewsletter(F, Cl), gw: F.gameweek, league: F.league, isPreview } : null;
+  ["#nl-email-copy", "#nl-email-view", "#nl-email-note"].forEach((s) => ($(s).hidden = !ok));
+  $("#nl-email-save").hidden = !ok || !CAP.downloads;
+  const box = $("#nl-email");
+  if (!ok) { box.hidden = true; return; }
+  $("#nl-email-copy").textContent = isPreview ? "Copy this preview for email" : "Copy for email";
+  if (!box.hidden) box.innerHTML = EMAIL_NOW.html;
+}
+
+/* Rich copy: HTML and plain text together, so the email app keeps the tables.
+   The artifact frame can block the clipboard API, so fall back to selecting the rendered email and copying it. */
+async function copyEmail(btn) {
+  if (!EMAIL_NOW) return;
+  const was = btn.textContent, msg = $("#nl-msg");
+  const done = (ok, text) => { btn.textContent = ok ? "Copied" : was; msg.className = "msg " + (ok ? "ok" : "err"); msg.textContent = text; setTimeout(() => (btn.textContent = was), 1800); };
+  const tail = EMAIL_NOW.isPreview ? " This is the tone preview: its numbers were checked on the page, not by the morning task." : "";
+  try {
+    if (!window.ClipboardItem || !navigator.clipboard || !navigator.clipboard.write) throw new Error("no rich clipboard");
+    await navigator.clipboard.write([new ClipboardItem({
+      "text/html": new Blob([`<html><body>${EMAIL_NOW.html}</body></html>`], { type: "text/html" }),
+      "text/plain": new Blob([EMAIL_NOW.text], { type: "text/plain" }),
+    })]);
+    done(true, "Copied. Paste it into a new email." + tail);
+  } catch (e) {
+    const box = $("#nl-email");
+    box.innerHTML = EMAIL_NOW.html; box.hidden = false; $("#nl-email-view").textContent = "Hide the email version"; $("#nl-email-view").setAttribute("aria-pressed", "true");
+    const r = document.createRange(); r.selectNodeContents(box);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    let ok = false; try { ok = document.execCommand("copy"); } catch (x) { ok = false; }
+    if (ok) { sel.removeAllRanges(); done(true, "Copied. Paste it into a new email." + tail); }
+    else done(false, "This view blocked the copy. The email version is selected below: press Ctrl+C (Cmd+C on a Mac), then paste it into your email.");
+  }
+}
+
+function toggleEmailView() {
+  const box = $("#nl-email"), b = $("#nl-email-view");
+  if (!EMAIL_NOW) return;
+  const show = box.hidden;
+  box.hidden = !show; if (show) box.innerHTML = EMAIL_NOW.html;
+  b.textContent = show ? "Hide the email version" : "Show the email version";
+  b.setAttribute("aria-pressed", String(show));
+  if (show) box.scrollIntoView({ block: "nearest" });
+}
+
+/* Fallback: a file to open in any browser, select all, copy, paste into the email. */
+async function saveEmail() {
+  if (!EMAIL_NOW || !CAP.downloads) return;
+  const msg = $("#nl-msg");
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(EMAIL_NOW.league)} FPL, Game Week ${EMAIL_NOW.gw}</title></head><body style="margin:16px;background:#ffffff">${EMAIL_NOW.html}</body></html>`;
+  try { await CAP.downloads.save({ filename: `GW${EMAIL_NOW.gw}_FPL_Newsletter_email.html`, data: doc }); msg.className = "msg ok"; msg.textContent = "Saved. Open it in a browser, select all, copy, and paste into your email."; }
+  catch (e) { msg.className = "msg"; msg.textContent = e && e.code === "declined" ? "" : "Couldn't save it here. Use Copy for email instead."; }
 }
 
 function loadFile(file) {
@@ -836,6 +897,9 @@ function wire() {
   $$("#w-kind button").forEach((b) => (b.onclick = () => { writer.kind = b.dataset.k; PREF.persona = ""; renderWriter(); }));
   $("#w-persona").onchange = (e) => { PREF.persona = e.target.value; savePrefs(); $("#w-custom-wrap").hidden = e.target.value !== "custom"; };
   $("#w-go").onclick = runWriter;
+  $("#nl-email-copy").onclick = (e) => copyEmail(e.currentTarget);
+  $("#nl-email-view").onclick = toggleEmailView;
+  $("#nl-email-save").onclick = saveEmail;
   $("#w-stop").onclick = () => writer.ctl && writer.ctl.abort();
   $("#w-copy").onclick = (e) => copyText(writer.lastText, e.currentTarget);
 
