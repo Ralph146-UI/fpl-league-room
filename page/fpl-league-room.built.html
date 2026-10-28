@@ -1687,11 +1687,12 @@ const EMAIL = (() => {
     return tbl(`<tr>${th}</tr>${body}`, `border:1px solid ${LINE};`);
   }
   /* Highlights: a centred, underlined label row above each value row */
-  function highlightTable(heads, items) {
-    const th = heads.map((h, i) => td(`<b>${esc(h)}</b>`, `background:${GREEN};padding:7px 10px;font-size:13px;text-align:${i === heads.length - 1 ? "center" : "left"}`, `bgcolor="${GREEN}"`)).join("");
+  function highlightTable(heads, items, lastAlign = "center") {
+    const al = (i) => (i === heads.length - 1 ? lastAlign : "left");
+    const th = heads.map((h, i) => td(`<b>${esc(h)}</b>`, `background:${GREEN};padding:7px 10px;font-size:13px;text-align:${al(i)}`, `bgcolor="${GREEN}" align="${al(i)}"`)).join("");
     const body = items.map(([label, cells]) =>
       `<tr>${td(`<b><u>${esc(label.toUpperCase())}</u></b>`, `padding:9px 10px 2px;font-size:12px;text-align:center;letter-spacing:.03em`, `colspan="${heads.length}"`)}</tr>` +
-      `<tr>${cells.map((v, i) => td(esc(v), `padding:2px 10px 8px;font-size:13px;text-align:${i === cells.length - 1 ? "center" : "left"};border-bottom:1px solid ${LINE}`)).join("")}</tr>`).join("");
+      `<tr>${cells.map((v, i) => td(esc(v), `padding:2px 10px 8px;font-size:13px;text-align:${al(i)};border-bottom:1px solid ${LINE}`, `align="${al(i)}"`)).join("")}</tr>`).join("");
     return tbl(`<tr>${th}</tr>${body}`, `border:1px solid ${LINE};`);
   }
 
@@ -1736,7 +1737,7 @@ const EMAIL = (() => {
       /* the middle section in two columns, as in the Word issues: highlights left, transfers and ownership right */
       `<tr><td>${twoColumns(
         tbl(banner("Manager Highlights") + `<tr><td>${highlightTable(["Team", "Manager", "Pts/#"], X.managers)}</td></tr>` + gap() +
-            banner("Player Highlights") + `<tr><td>${highlightTable(["Player", "#"], X.players)}</td></tr>`),
+            banner("Player Highlights") + `<tr><td>${highlightTable(["Player", "#"], X.players, "right")}</td></tr>`),
         tbl(banner("Top 5 Transfers IN") + `<tr><td>${dataTable(["Player", "Team", "Transfers In"], X.tin)}</td></tr>` + gap() +
             banner("Top 5 Transfers OUT") + `<tr><td>${dataTable(["Player", "Team", "Transfers Out"], X.tout)}</td></tr>` + gap() +
             banner(`Top 10 Player Ownership (GW${F.gameweek})`) + `<tr><td>${dataTable(["Player", "Team", "Ownership"], X.own)}</td></tr>`))}</td></tr>`,
