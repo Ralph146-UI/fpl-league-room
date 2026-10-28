@@ -1,0 +1,40 @@
+name: Fetch FPL league
+
+# Every morning at 06:17 UTC, plus a "Run workflow" button on the Actions tab.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch the league
+        run: python fpl_fetch.py
+
+      - name: Save the data
+        run: |
+          git config user.name "fpl-bot"
+          git config user.email "fpl-bot@users.noreply.github.com"
+          git add data/fpl_bundle.json
+          if git diff --cached --quiet; then
+            echo "Nothing new."
+          else
+            git commit -m "League data $(date -u +%Y-%m-%d)"
+            git push
+          fi

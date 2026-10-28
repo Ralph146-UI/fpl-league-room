@@ -1,0 +1,9 @@
+{
+  "league_id": null,
+  "report": {
+    "enabled": true,
+    "voice": "banter",
+    "running_joke_about": "",
+    "going_to": "whatsapp"
+  }
+}
