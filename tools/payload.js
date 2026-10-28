@@ -23,6 +23,10 @@ if (cmd === "info") {
   const S = C.build(read(a));
   fs.writeFileSync(b, JSON.stringify(C.payloadWeekly(S)));
   console.log("Wrote " + b);
+} else if (cmd === "newsletter") {
+  const S = C.build(read(a));
+  fs.writeFileSync(b, JSON.stringify(C.payloadNewsletter(S), null, 1));
+  console.log("Wrote " + b);
 } else if (cmd === "split") {
   const B = read(a);
   const { elements, teams, fixtures, events, ...rest } = B;

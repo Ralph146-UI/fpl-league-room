@@ -20,6 +20,7 @@ Edit `settings.json` on GitHub (pencil icon, then Commit changes):
 | `report.voice` | `banter`, `pundit`, `manager` or `plain` (the files in `personas/`). |
 | `report.running_joke_about` | A manager's name for the running joke, or `""`. |
 | `report.going_to` | `whatsapp`, `teams` or `me`: sets the formatting. |
+| `newsletter.enabled` | `false` to stop the weekly Word newsletter. |
 
 ## When something goes wrong
 
@@ -37,5 +38,7 @@ Edit `settings.json` on GitHub (pencil icon, then Commit changes):
 | `fpl_fetch.py` | Fetches the league. Standard library only. |
 | `tools/core.js` | Every calculation: the same file the page uses. |
 | `tools/payload.js` | Helpers the scheduled task uses (report data, number check). |
-| `personas/` | The report voices and the rules every report follows. |
+| `personas/` | The report voices, the rules every report follows, and `newsletter.md` (the newsletter's voice and your GW7 issue as the style example). |
+| `tools/newsletter.js` | Builds the newsletter Word file in the GW7 layout. |
+| `data/newsletters/` | Every newsletter, one Word file per gameweek. |
 | `data/fpl_bundle.json` | The latest data, written by the workflow. |

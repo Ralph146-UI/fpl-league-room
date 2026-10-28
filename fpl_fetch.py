@@ -172,6 +172,8 @@ def main():
         tx = get(f"/entry/{e}/transfers/") or []
         return {
             "entry": e,
+            "rank": r.get("rank"),
+            "last_rank": r.get("last_rank"),
             "name": r["player_name"],
             "team": r["entry_name"],
             # [event, points, total_points, overall_rank, bank, value, transfers, transfer_cost, bench]
@@ -205,6 +207,8 @@ def main():
         "league": {"id": meta["id"], "name": meta["name"], "complete": total_managers is not None and total_managers <= MAX_MANAGERS},
         "gw": gw,
         "squad_gw": squad_gw,
+        # the gameweek the league's own rank and last_rank refer to
+        "standings_gw": current,
         "events": [{"id": e["id"], "avg": e.get("average_entry_score"), "high": e.get("highest_score"),
                     "finished": bool(e.get("finished")), "checked": bool(e.get("data_checked")),
                     "current": bool(e.get("is_current")), "next": bool(e.get("is_next")),

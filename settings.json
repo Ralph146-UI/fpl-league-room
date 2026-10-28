@@ -5,5 +5,8 @@
     "voice": "banter",
     "running_joke_about": "",
     "going_to": "whatsapp"
+  },
+  "newsletter": {
+    "enabled": true
   }
 }

@@ -32,14 +32,14 @@ function build(b) {
   const teams = new Map(b.teams.map((t) => [t[0], { short: t[1], name: t[2] }]));
   const P = new Map(b.elements.map((r) => [r[0], {
     id: r[0], name: r[1], team: r[2], pos: r[3], cost: r[4] / 10, form: r[5], ppg: r[6],
-    mins: r[7], status: r[8], chance: r[9], news: r[10], own: r[11], total: r[12],
+    mins: r[7], status: r[8], chance: r[9], news: r[10], own: r[11], total: r[12], raw: r,
   }]));
   const M = b.managers.map((m) => ({
     entry: m.entry, name: m.name, team: m.team,
     hist: new Map(m.history.map((h) => [h[0], {
       ev: h[0], pts: h[1], total: h[2], orank: h[3], bank: h[4], value: h[5], tx: h[6], cost: h[7], bench: h[8],
     }])),
-    chips: m.chips || [], picks: m.picks, prev: m.prev, squad: m.squad, transfers: m.transfers || [],
+    chips: m.chips || [], picks: m.picks, prev: m.prev, squad: m.squad, transfers: m.transfers || [], captains: m.captains || [], rank: m.rank || null, lastRank: m.last_rank || null,
   }));
   const live = new Map(Object.entries(b.live || {}).map(([k, v]) => [+k, { pts: v[0], mins: v[1] }]));
   const gws = [...new Set(M.flatMap((m) => [...m.hist.keys()]))].filter((g) => g <= b.gw).sort((a, c) => a - c);
@@ -200,7 +200,11 @@ function gameweek(S) {
 
   const byPts = rows.slice().sort((a, b) => b.pts - a.pts);
   const now = tableAt(S, g), before = S.gws.includes(g - 1) ? tableAt(S, g - 1) : null;
-  const moves = before ? now.map((r) => { const p = before.find((x) => x.m === r.m); return p ? { m: r.m, rank: r.rank, prev: p.rank, change: p.rank - r.rank } : null; }).filter(Boolean) : [];
+  /* FPL's own league positions (it splits ties) when the fetch has them for this gameweek; otherwise shared ranks from totals. */
+  const fplRanks = S.b.standings_gw === g && S.M.every((m) => m.rank && m.lastRank);
+  const moves = fplRanks
+    ? S.M.map((m) => ({ m, rank: m.rank, prev: m.lastRank, change: m.lastRank - m.rank }))
+    : before ? now.map((r) => { const p = before.find((x) => x.m === r.m); return p ? { m: r.m, rank: r.rank, prev: p.rank, change: p.rank - r.rank } : null; }).filter(Boolean) : [];
   const climb = moves.filter((x) => x.change > 0).sort((a, b) => b.change - a.change)[0] || null;
   const fall = moves.filter((x) => x.change < 0).sort((a, b) => a.change - b.change)[0] || null;
 
@@ -408,6 +412,120 @@ function payloadAdvice(S, A) {
   };
 }
 
+/* ------------------------------------------------------------ newsletter */
+
+/* Every figure in the newsletter, in one place. The written columns are
+   produced from this and nothing else. */
+function payloadNewsletter(S) {
+  const g = S.gw, w = gameweek(S), N = S.M.length;
+  const club = (el) => teamShort(S, (S.P.get(el) || {}).team);
+  const stat = (el) => { const v = (S.b.live || {})[String(el)] || [0, 0, 0, 0, 0, 0]; return { pts: v[0], mins: v[1], goals: v[2] || 0, assists: v[3] || 0, bonus: v[4] || 0 }; };
+  const label = (m) => ({ team: m.team, manager: m.name });
+  const pct = (n) => `${(Math.round(n / N * 10000) / 100).toFixed(2)}% (${n}/${N})`;
+  /* The newsletter's average and median are after hits, as in the hand-made issues. */
+  const scores = w.rows.map((r) => r.net).sort((a, b) => a - b);
+  const median = scores.length % 2 ? scores[(scores.length - 1) / 2] : (scores[scores.length / 2 - 1] + scores[scores.length / 2]) / 2;
+
+  /* movement */
+  const moves = w.moves.map((x) => { const r = w.rows.find((y) => y.m === x.m); return { ...label(x.m), from: x.prev, to: x.rank, change: x.change, points: r ? r.pts : null, captain: r && r.cap && r.cap.effective ? r.cap.effective.name : null, chip: r ? r.chipLabel : null, transfers: r ? r.tx : null }; });
+  const risers = moves.filter((x) => x.change > 0).sort((a, b) => b.change - a.change || b.points - a.points).slice(0, 3);
+  const fallers = moves.filter((x) => x.change < 0).sort((a, b) => a.change - b.change || a.points - b.points).slice(0, 3);
+
+  /* transfers: net points of all of a manager's moves this week. Wildcard and Free Hit weeks are left out. */
+  const txNet = w.rows.filter((r) => !SQUAD_CHIPS.has(r.chip) && r.transfers.length)
+    .map((r) => ({ ...label(r.m), moves: r.transfers.length, net: sum(r.transfers.map((t) => t.net)), hit: r.hit, detail: r.transfers.map((t) => `${t.out} (${t.outPts}) out, ${t.in} (${t.inPts}) in`) }));
+  const bestTx = txNet.slice().sort((a, b) => b.net - a.net)[0] || null;
+  const worstTx = txNet.slice().sort((a, b) => a.net - b.net)[0] || null;
+
+  /* league transfers in and out this week, all managers */
+  const tIn = {}, tOut = {};
+  /* Wildcard and Free Hit squads are left out: they are rebuilds, not transfer decisions. */
+  w.rows.filter((r) => !SQUAD_CHIPS.has(r.chip)).forEach((r) => r.m.transfers.filter((t) => t[2] === g).forEach((t) => { tIn[t[0]] = (tIn[t[0]] || 0) + 1; tOut[t[1]] = (tOut[t[1]] || 0) + 1; }));
+  const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1] || pname(S, +a[0]).localeCompare(pname(S, +b[0]))).slice(0, n).map(([el, c]) => ({ player: pname(S, +el), club: club(+el), count: c }));
+
+  /* ownership: in the 15-man squad for this gameweek */
+  const own = {}, capN = {};
+  S.M.forEach((m) => { if (!m.picks) return; m.picks.picks.forEach((p) => { own[p[0]] = (own[p[0]] || 0) + 1; if (p[3]) capN[p[0]] = (capN[p[0]] || 0) + 1; }); });
+  const ownership = Object.entries(own).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([el, c]) => ({ player: pname(S, +el), club: club(+el), owners: c, share: pct(c) }));
+  const capTop = Object.entries(capN).sort((a, b) => b[1] - a[1])[0];
+
+  /* season captaincy: the points the armband actually delivered, triple captain included */
+  const capSeason = S.M.map((m) => ({ ...label(m), points: sum((m.captains || []).filter((c) => c[0] <= g).map((c) => c[3])), weeks: (m.captains || []).filter((c) => c[0] <= g).length }))
+    .filter((x) => x.weeks > 0);
+  const capBest = capSeason.slice().sort((a, b) => b.points - a.points)[0] || null;
+  const capWorst = capSeason.slice().sort((a, b) => a.points - b.points)[0] || null;
+
+  /* season transfers and squad value */
+  const seasonTx = S.M.map((m) => ({ ...label(m), transfers: sum([...m.hist.values()].filter((h) => h.ev <= g).map((h) => h.tx)) })).sort((a, b) => b.transfers - a.transfers)[0];
+  const value = S.M.map((m) => { const h = m.hist.get(g); return h ? { ...label(m), value: h.value / 10 } : null; }).filter(Boolean).sort((a, b) => b.value - a.value)[0];
+
+  /* chips by type */
+  const chipGroups = {};
+  w.rows.filter((r) => r.chip).forEach((r) => {
+    const k = r.chipLabel;
+    (chipGroups[k] = chipGroups[k] || []).push({ ...label(r.m), points: r.pts, extra: r.chipGain, on: r.chip === "3xc" && r.cap && r.cap.effective ? r.cap.effective.name : null });
+  });
+  const chips = Object.entries(chipGroups).map(([chip, list]) => {
+    const s = list.slice().sort((a, b) => b.points - a.points);
+    const ons = {}; list.forEach((x) => x.on && (ons[x.on] = (ons[x.on] || 0) + 1));
+    return { chip, managers: list.length, best: s[0], worst: s.length > 1 ? s[s.length - 1] : null, triple_captain_on: Object.keys(ons).length ? ons : null,
+      note: chip === "Wildcard" ? "extra = points against what the old team would have scored" : chip === "Triple Captain" ? "extra = the third helping of the captain's points" : chip === "Bench Boost" ? "extra = points from the bench" : null };
+  });
+
+  /* players: facts for the Players Column */
+  const fixtureOf = (el) => {
+    const t = (S.P.get(el) || {}).team;
+    const f = (S.b.gw_fixtures || []).filter((x) => x[0] === t || x[1] === t);
+    return f.map((x) => x[0] === t ? `${teamShort(S, x[1])} (H) ${x[2] ?? "?"}-${x[3] ?? "?"}` : `${teamShort(S, x[0])} (A) ${x[3] ?? "?"}-${x[2] ?? "?"}`).join(", ");
+  };
+  const player = (el) => el && { player: pname(S, +el), club: club(+el), ...stat(+el), fixture: fixtureOf(+el), league_owners: own[el] || 0, league_captains: capN[el] || 0 };
+  const owned = Object.keys(own).map(Number).sort((a, b) => stat(b).pts - stat(a).pts);
+  const tcRows = w.rows.filter((r) => r.chip === "3xc" && r.cap && r.cap.effective);
+  const capRows = w.rows.filter((r) => r.cap && r.cap.effective && r.cap.effective.mult === 2);
+  const globalFav = [...S.P.values()].filter((p) => p.raw && p.raw[13] != null).sort((a, b) => b.raw[13] - a.raw[13])[0];
+  const leagueFav = Object.entries(tIn).sort((a, b) => b[1] - a[1])[0];
+
+  const T = w.table;
+  return {
+    league: S.b.league.name, gameweek: g, final: w.final, managers: N,
+    intro: { average_after_hits: r1(mean(scores)), median, managers_90_plus: scores.filter((x) => x >= 90).length, top_scorer: w.byPts[0] && { ...label(w.byPts[0].m), points: w.byPts[0].pts, hit: w.byPts[0].hit },
+      global_average: w.globalAvg, league_average_before_hits: w.leagueAvg, league_minus_global_before_hits: w.globalAvg != null ? r1(w.leagueAvg - w.globalAvg) : null },
+    table_top3: T.slice(0, 3).map((r, i) => ({ rank: r.rank, ...label(r.m), total: r.total, week_points: r.pts, behind_leader: T[0].total - r.total, moved: (moves.find((x) => x.manager === r.m.name) || {}).change ?? 0 })),
+    manager_of_the_week: w.byPts[0] && { ...label(w.byPts[0].m), points: w.byPts[0].pts, transfers: w.byPts[0].tx, hit: w.byPts[0].hit, chip: w.byPts[0].chipLabel, places_moved: (moves.find((x) => x.manager === w.byPts[0].m.name) || {}).change ?? 0 },
+    biggest_risers: risers, biggest_fallers: fallers,
+    chips,
+    highlights: {
+      manager_of_the_week: w.byPts[0] && { ...label(w.byPts[0].m), value: `${w.byPts[0].pts} pts` },
+      biggest_rise: risers[0] && { team: risers[0].team, manager: risers[0].manager, value: `+${risers[0].change}` },
+      biggest_fall: fallers[0] && { team: fallers[0].team, manager: fallers[0].manager, value: `${fallers[0].change}` },
+      best_transfers_this_week: bestTx && bestTx.net > 0 && { team: bestTx.team, manager: bestTx.manager, value: `${bestTx.net} net pts` },
+      worst_transfers_this_week: worstTx && worstTx.net < 0 && { team: worstTx.team, manager: worstTx.manager, value: `${worstTx.net} net pts` },
+      most_points_on_bench_this_week: w.benchKing && w.benchKing.bench > 0 && { ...label(w.benchKing.m), value: `${w.benchKing.bench} pts` },
+      most_transfers_this_season: seasonTx && { team: seasonTx.team, manager: seasonTx.manager, value: `${seasonTx.transfers} transfers` },
+      best_team_value: value && { team: value.team, manager: value.manager, value: `£${value.value.toFixed(1)}M` },
+      best_captain_picker: capBest && { team: capBest.team, manager: capBest.manager, value: `${capBest.points} pts` },
+      worst_captain_picker: capWorst && { team: capWorst.team, manager: capWorst.manager, value: `${capWorst.points} pts` },
+    },
+    transfer_detail: { best: bestTx, worst: worstTx },
+    player_highlights: {
+      most_captained: capTop && { player: pname(S, +capTop[0]), value: `${Math.round(capTop[1] / N * 100)}% (${capTop[1]}/${N})` },
+      most_owned: ownership[0] && { player: ownership[0].player, value: ownership[0].share },
+      most_transferred_in: leagueFav && { player: top(tIn, 10).filter((x) => x.count === leagueFav[1]).map((x) => x.player).join(", "), value: `${leagueFav[1]}${top(tIn, 10).filter((x) => x.count === leagueFav[1]).length > 1 ? " each" : ""}` },
+      most_transferred_out: Object.keys(tOut).length && { player: top(tOut, 1)[0].player, value: `${top(tOut, 1)[0].count} out` },
+    },
+    transfers_in_top5: top(tIn, 5), transfers_out_top5: top(tOut, 5), ownership_top10: ownership,
+    players: {
+      most_captained: capTop && { ...player(capTop[0]), captained_by: capTop[1], triple_captained_by: tcRows.filter((r) => r.cap.effective.name === pname(S, +capTop[0])).length,
+        points_per_captain: stat(+capTop[0]).pts * 2, points_per_triple_captain: stat(+capTop[0]).pts * 3 },
+      top_scorers_owned_in_league: owned.slice(0, 5).map(player),
+      league_most_bought: leagueFav && { ...player(leagueFav[0]), bought_by: leagueFav[1] },
+      global_most_bought: globalFav && { ...player(globalFav.id), global_transfers_in: globalFav.raw[13] },
+      differentials: w.differentials.map((d) => ({ player: d.player, club: d.team, points: d.pts, only_starter: d.m.name })),
+      captains_used: capRows.length,
+    },
+  };
+}
+
 /* ------------------------------------------------------------ number check */
 
 /* Every number in the write-up should appear somewhere in the data it was
@@ -524,4 +642,4 @@ function demoBundle() {
 }
 function S_pos(elements, id) { const e = elements.find((x) => x[0] === id); return e ? e[3] : 1; }
 
-if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
+if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
