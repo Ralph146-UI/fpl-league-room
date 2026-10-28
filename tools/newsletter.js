@@ -150,4 +150,9 @@ const doc = new Document({
   }],
 });
 
-Packer.toBuffer(doc).then((buf) => { fs.writeFileSync(outPath, buf); console.log(`Wrote ${outPath} (${buf.length >> 10} KB)`); });
+Packer.toBuffer(doc).then((buf) => {
+  fs.writeFileSync(outPath, buf);
+  /* Route every run through the theme's body font, set to Aptos, so Word shows "Aptos (Body)". */
+  require("child_process").execFileSync("python3", [require("path").join(__dirname, "theme_font.py"), outPath], { stdio: "inherit" });
+  console.log(`Wrote ${outPath} (${fs.statSync(outPath).size >> 10} KB)`);
+});
