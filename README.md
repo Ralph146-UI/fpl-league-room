@@ -9,6 +9,8 @@ Keeps an FPL mini-league up to date without anyone running anything.
    the League Room page, and when a gameweek has just finished it writes the
    weekly report and sends it to you.
 
+Full design, definitions and handover: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** (version 1.0, 28 Oct 2026, git tag `v1.0`).
+
 ## Settings
 
 Edit `settings.json` on GitHub (pencil icon, then Commit changes):
@@ -43,3 +45,5 @@ Edit `settings.json` on GitHub (pencil icon, then Commit changes):
 | `tools/newsletter.js` | Builds the newsletter Word file in the GW7 layout. |
 | `data/newsletters/` | Every newsletter, one Word file per gameweek. |
 | `data/fpl_bundle.json` | The latest data, written by the workflow. |
+| `page/` | The League Room page source; `python3 page/build.py` assembles it. |
+| `docs/` | Architecture and handover, and the scheduled task's full instructions. |

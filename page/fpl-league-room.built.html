@@ -1,0 +1,2318 @@
+<title>FPL League Room</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Chivo:wght@400;500;700&family=Chivo+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a matchday room. Sticky scoreboard bar (league, gameweek, deadline, you), tabbed views below, one column up to 1080px. */
+:root{
+  --paper:#f1f4f1; --surface:#fbfcfa; --sunk:#e7ece8; --ink:#13201a; --text:#26332d; --muted:#5a6a62; --line:#d4dcd6; --faint:#c3cdc7;
+  --accent:#12684f; --accent-soft:#d5ebe2; --on-accent:#ffffff;
+  --alt:#2f5fb3; --alt-soft:#dce6f7;
+  --me:#b85a08; --me-soft:#fbe8d6; --s2:#4b50ae; --s3:#2a6fa8;
+  --good:#1d7a3e; --good-soft:#dcefe2; --bad:#b03a2f; --bad-soft:#f7dfdb; --warn:#946200; --warn-soft:#fbefcf;
+  --board:#13201a; --board-fg:#f1f4f1;
+  --fpl-purple:#37003c; --fpl-green:#00ff87; --fpl-on-purple:#ffffff; --fpl-on-green:#13201a;
+  --display:"Saira Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Chivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Chivo Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0d1411; --surface:#141e1a; --sunk:#0a100d; --ink:#e6eee9; --text:#d3ddd7; --muted:#93a39b; --line:#26342e; --faint:#33443c;
+  --accent:#4cbf96; --accent-soft:#163a2e; --on-accent:#0b1410;
+  --alt:#7ea6ec; --alt-soft:#17243d;
+  --me:#f0944a; --me-soft:#3f2611; --s2:#9a9eef; --s3:#6fb0e6;
+  --good:#5fcf86; --good-soft:#163423; --bad:#f07a6f; --bad-soft:#3c1c18; --warn:#e7b84a; --warn-soft:#352a0c; --board:#050a08; --board-fg:#e6eee9;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0d1411; --surface:#141e1a; --sunk:#0a100d; --ink:#e6eee9; --text:#d3ddd7; --muted:#93a39b; --line:#26342e; --faint:#33443c;
+  --accent:#4cbf96; --accent-soft:#163a2e; --on-accent:#0b1410;
+  --alt:#7ea6ec; --alt-soft:#17243d;
+  --me:#f0944a; --me-soft:#3f2611; --s2:#9a9eef; --s3:#6fb0e6;
+  --good:#5fcf86; --good-soft:#163423; --bad:#f07a6f; --bad-soft:#3c1c18; --warn:#e7b84a; --warn-soft:#352a0c; --board:#050a08; --board-fg:#e6eee9;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+/* A league other than the main one swaps the accent to blue and marks the top bar, so the two never look alike. */
+body.alt-league{--accent:var(--alt);--accent-soft:var(--alt-soft)}
+body.alt-league .board{box-shadow:inset 0 4px 0 var(--alt)}
+.pill.lg{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:500}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#league-pick{font-weight:600;max-width:17em}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.55;margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--board)}
+h1,h2,h3{font-family:var(--display);color:var(--ink);margin:0;line-height:1.05;text-wrap:balance;font-weight:600}
+h2{font-size:1.75rem;text-transform:uppercase;letter-spacing:.01em}
+h3{font-size:1.2rem;letter-spacing:.01em}
+p{margin:0}
+a{color:var(--accent)}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* scoreboard bar */
+.board{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--board);color:var(--board-fg);border-bottom:1px solid var(--line)}
+.board-in{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 0;display:flex;flex-direction:column;gap:8px}
+.board-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:12px;min-width:0}
+.brand h1{color:var(--board-fg);font-size:clamp(1.5rem,4.5vw,2.1rem);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw}
+.brand .eyebrow{color:color-mix(in srgb,var(--board-fg) 62%,transparent)}
+.status{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;padding:3px 8px;border-radius:3px;border:1px solid color-mix(in srgb,var(--board-fg) 30%,transparent);color:var(--board-fg);white-space:nowrap}
+.pill.warn{background:var(--warn);border-color:var(--warn);color:var(--board)}
+.pill.demo{background:var(--me);border-color:var(--me);color:var(--board)}
+.you{display:flex;align-items:center;gap:6px;font-size:.82rem;color:color-mix(in srgb,var(--board-fg) 70%,transparent)}
+.you select{background:transparent;color:var(--board-fg);border:1px solid color-mix(in srgb,var(--board-fg) 30%,transparent);border-radius:3px;padding:3px 6px;max-width:11em}
+.you select option{color:var(--text);background:var(--surface)}
+.tabs{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;margin-inline:-6px}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{font-family:var(--display);font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.04em;color:color-mix(in srgb,var(--board-fg) 60%,transparent);text-decoration:none;padding:6px 10px 8px;white-space:nowrap;border-bottom:3px solid transparent}
+.tabs a:hover{color:var(--board-fg)}
+.tabs a.on{color:var(--board-fg);border-bottom-color:var(--accent)}
+
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px}
+.view{display:flex;flex-direction:column;gap:36px}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sechead{display:flex;align-items:baseline;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;border-bottom:3px solid var(--ink);padding-bottom:6px}
+.sechead p{font-size:.86rem;color:var(--muted);max-width:60ch}
+.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--me-soft);border:1px solid var(--me);border-radius:6px;padding:10px 14px;font-size:.9rem}
+.banner.warn{background:var(--warn-soft);border-color:var(--warn)}
+.banner b{color:var(--ink)}
+
+/* buttons and fields */
+.btn{cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:4px;padding:7px 14px;font-weight:500;font-size:.9rem}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.small{padding:4px 10px;font-size:.82rem}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.78rem;color:var(--muted)}
+.field select,.field input,.field textarea{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 8px;color:var(--ink);min-width:0}
+.field textarea{resize:vertical;min-height:4.5em;font-size:.88rem}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:flex-end}
+
+/* headline figures */
+.verdict{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--line)}
+.verdict div{padding:12px 14px 12px 0;display:flex;flex-direction:column;gap:2px;min-width:0}
+.verdict div+div{padding-left:14px;border-left:1px solid var(--line)}
+.verdict b{font-family:var(--display);font-size:2.1rem;font-weight:600;line-height:1;color:var(--ink);overflow-wrap:anywhere}
+.verdict span{font-size:.8rem;color:var(--muted)}
+@media (max-width:640px){.verdict{grid-template-columns:repeat(2,minmax(0,1fr))}.verdict div:nth-child(3){padding-left:0;border-left:0}.verdict div:nth-child(n+3){border-top:1px solid var(--line)}}
+
+.youcard{display:grid;grid-template-columns:auto 1fr;gap:2px 18px;align-items:center;background:var(--me-soft);border:1px solid var(--me);border-radius:6px;padding:12px 16px}
+.youcard .big{font-family:var(--display);font-size:2.8rem;font-weight:700;line-height:1;color:var(--me);grid-row:span 2}
+.youcard b{color:var(--ink)}
+.youcard p{font-size:.9rem}
+
+/* tables */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:7px 10px;text-align:right;white-space:nowrap}
+th{font-family:var(--mono);font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);background:var(--surface)}
+th.l,td.l{text-align:left}
+tbody tr+tr td{border-top:1px solid var(--line)}
+tbody tr.me td{background:var(--me-soft)}
+tbody tr.me td:first-child{box-shadow:inset 3px 0 0 var(--me)}
+td.pos{font-family:var(--display);font-size:1.3rem;font-weight:700;color:var(--ink);width:2.4em}
+.who{display:flex;flex-direction:column;line-height:1.25}
+.who b{font-weight:500;color:var(--ink)}
+.who span{font-size:.76rem;color:var(--muted)}
+.mv{font-family:var(--mono);font-size:.78rem}
+.mv.up{color:var(--good)}.mv.down{color:var(--bad)}.mv.same{color:var(--muted)}
+.gw{display:inline-block;min-width:2.6em;text-align:center;padding:1px 6px;border-radius:3px;font-family:var(--mono)}
+.gw.above{background:var(--good-soft);color:var(--good)}
+.gw.below{background:var(--bad-soft);color:var(--bad)}
+.badge{font-family:var(--mono);font-size:.64rem;letter-spacing:.04em;padding:1px 5px;border-radius:3px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+.badge.flag{border-color:var(--warn);color:var(--warn)}
+th button{all:unset;cursor:pointer}
+th[aria-sort="descending"] button::after{content:" ▾"}
+th[aria-sort="ascending"] button::after{content:" ▴"}
+.legendrow{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+
+/* insight cards */
+.notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.notes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:540px){.notes{grid-template-columns:1fr}}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.note .stat{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.note .stat b{font-family:var(--display);font-size:2.5rem;font-weight:700;line-height:.95;color:var(--accent)}
+.note.luck .stat b,.note.world .stat b{color:var(--muted)}
+.note.cost .stat b{color:var(--bad)}
+.note .stat span{font-family:var(--mono);font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.note p{font-size:.87rem;color:var(--muted)}
+.tag{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* charts */
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.charts .wide{grid-column:1/-1}
+@media (max-width:760px){.charts{grid-template-columns:1fr}}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 14px 10px;display:flex;flex-direction:column;gap:6px;min-width:0;margin:0;position:relative}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.chart .cap{font-size:.82rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.76rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;border-radius:2px}
+svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
+svg .lbl{fill:var(--ink);font-family:var(--body);font-size:12px;font-weight:700}
+svg .bg-line{stroke:var(--faint);stroke-width:1.5;fill:none}
+svg .hit{stroke:transparent;stroke-width:12;fill:none;cursor:pointer}
+svg g.mgr:hover .bg-line{stroke:var(--ink);stroke-width:2.5}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-size:.76rem;padding:4px 8px;border-radius:4px;white-space:nowrap;transform:translate(-50%,-130%);z-index:2}
+
+/* gameweek */
+.podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:600px){.podium{grid-template-columns:1fr}}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.step:first-child{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.step .place{font-family:var(--mono);font-size:.7rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.step .score{font-family:var(--display);font-size:2.6rem;font-weight:700;color:var(--ink);line-height:1}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+@media (max-width:680px){.facts{grid-template-columns:1fr}}
+.fact{display:grid;grid-template-columns:9.5em 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.9rem;min-width:0}
+.fact dt{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.fact dd{margin:0;min-width:0}
+.fact dd b{color:var(--ink);font-weight:500}
+
+/* transfers */
+.move{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.move.lead{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.move .side{display:flex;flex-direction:column;gap:2px;min-width:0}
+.move .side.in{text-align:right}
+.move .nm{font-family:var(--display);font-size:1.5rem;font-weight:600;color:var(--ink);line-height:1.05}
+.move .meta{font-size:.78rem;color:var(--muted)}
+.move .gain{font-family:var(--mono);font-size:.82rem;color:var(--good);background:var(--good-soft);padding:3px 8px;border-radius:3px;white-space:nowrap}
+.move .fx{grid-column:1/-1;font-size:.8rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+@media (max-width:520px){.move{grid-template-columns:1fr}.move .side.in{text-align:left}.move .gain{justify-self:start}}
+.plan{border-left:4px solid var(--accent);padding:6px 0 6px 14px;font-size:1rem;color:var(--ink)}
+.plan.hold{border-left-color:var(--muted)}
+.plan.hit{border-left-color:var(--warn)}
+.runs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:680px){.runs{grid-template-columns:1fr}}
+.runs ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+.runs li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+.runs li span:last-child{color:var(--muted);text-align:right;min-width:0}
+.bar{height:6px;border-radius:2px;background:var(--sunk);overflow:hidden;width:64px;display:inline-block;vertical-align:middle}
+.bar i{display:block;height:100%;background:var(--accent)}
+
+/* write-ups */
+.writer{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.writer{grid-template-columns:1fr}}
+.writer .opts{display:flex;flex-direction:column;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.out{background:var(--surface);border:1px solid var(--line);border-radius:6px;min-height:240px;display:flex;flex-direction:column;min-width:0}
+.out-bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+.out-text{padding:16px 18px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.95rem;line-height:1.6;color:var(--ink);min-height:180px}
+.out-text.idle{color:var(--muted);font-style:italic}
+.check{padding:10px 14px;border-top:1px solid var(--line);font-size:.84rem}
+.check.ok{color:var(--good)}
+.check.flag{color:var(--warn)}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;padding:6px 10px;font-size:.85rem;flex:1;text-align:center;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* data */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;counter-reset:s}
+@media (max-width:760px){.steps{grid-template-columns:1fr}}
+.stepbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.stepbox h3::before{counter-increment:s;content:counter(s);font-family:var(--mono);font-size:.8rem;color:var(--on-accent);background:var(--accent);border-radius:50%;width:1.6em;height:1.6em;display:inline-grid;place-items:center;margin-right:8px;vertical-align:2px}
+.stepbox p{font-size:.88rem}
+code,.code{font-family:var(--mono);font-size:.82rem;background:var(--sunk);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+pre.code{display:block;padding:10px 12px;overflow-x:auto;white-space:pre;margin:0;max-height:320px}
+.drop{border:2px dashed var(--faint);border-radius:8px;padding:28px 16px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center;background:var(--surface);cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop b{font-family:var(--display);font-size:1.4rem;color:var(--ink);font-weight:600}
+.msg{font-size:.88rem}
+.msg.err{color:var(--bad)}.msg.ok{color:var(--good)}
+details summary{cursor:pointer;color:var(--accent);font-size:.88rem}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.88rem}
+/* insights */
+.posgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:820px){.posgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:440px){.posgrid{grid-template-columns:1fr}}
+.poscard{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.poscard .pn{font-family:var(--display);font-size:1.6rem;font-weight:700;color:var(--ink);line-height:1}
+.poscard dl{margin:0;display:grid;grid-template-columns:auto auto;gap:4px 10px;font-size:.84rem}
+.poscard dt{color:var(--muted)}
+.poscard dd{margin:0;text-align:right;color:var(--ink);font-family:var(--mono);font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.share{height:8px;border-radius:2px;background:var(--sunk);overflow:hidden}
+.share i{display:block;height:100%;background:var(--accent)}
+.fd{display:inline-block;min-width:3.6em;text-align:center;font-family:var(--mono);font-size:.72rem;padding:1px 5px;border-radius:3px;margin-right:3px}
+.fd.d1,.fd.d2{background:var(--good-soft);color:var(--good)}
+.fd.d3{background:var(--sunk);color:var(--muted)}
+.fd.d4,.fd.d5{background:var(--bad-soft);color:var(--bad)}
+.frm{font-family:var(--mono);font-size:.74rem;letter-spacing:.06em}
+.frm .W{color:var(--good)}.frm .L{color:var(--bad)}.frm .D{color:var(--muted)}
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:720px){.vs{grid-template-columns:1fr}}
+.vs ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+.vs li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.vs li b{color:var(--ink);font-weight:500}
+.vs li span{font-family:var(--mono);font-size:.8rem;color:var(--muted);white-space:nowrap}
+.over{color:var(--good)}.under{color:var(--bad)}
+
+/* newsletter */
+.nl{max-width:820px;display:flex;flex-direction:column;gap:18px}
+.nl-head{background:var(--fpl-purple);color:var(--fpl-on-purple);border-radius:6px 6px 0 0;padding:26px 18px 20px;text-align:center;display:flex;flex-direction:column;gap:4px}
+.nl-head b{font-family:var(--display);font-size:clamp(1.6rem,5vw,2.3rem);line-height:1.05;text-transform:uppercase;letter-spacing:.02em;color:var(--fpl-on-purple)}
+.nl-head span{font-size:.8rem;color:var(--fpl-green);font-weight:500}
+.nl-box{border:1px solid var(--line);border-top:0;background:var(--surface);padding:18px 20px;display:flex;flex-direction:column;gap:10px;border-radius:0 0 6px 6px}
+.nl-box.solo{border-top:1px solid var(--line);border-radius:6px}
+.nl-box h3{font-family:var(--body);font-size:1rem;font-weight:700;margin-top:6px}
+.nl-box ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.nl-box p,.nl-box li{max-width:72ch}
+.nl-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:720px){.nl-grid{grid-template-columns:1fr}}
+.nl-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.nl-t .ban{background:var(--fpl-purple);color:var(--fpl-on-purple);font-family:var(--body);font-weight:700;padding:10px 12px;border-radius:4px 4px 0 0}
+.nl-t table{font-size:.8rem}
+.nl-t th,.nl-t td{white-space:normal;padding:6px 8px}
+.nl-t td.num,.nl-t th:last-child{white-space:nowrap}
+.nl-t th{background:var(--fpl-green);color:var(--fpl-on-green)}
+.nl-t td.sec{text-align:center;font-weight:700;text-decoration:underline;font-size:.72rem;letter-spacing:.03em;padding-top:10px;border-top:0}
+.nl-t tr.after td{border-top:0}
+.nl-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;margin-top:8px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+
+<div class="board">
+  <div class="board-in">
+    <div class="board-row">
+      <div class="brand"><h1 id="league-name">League Room</h1><span class="eyebrow" id="board-gw"></span></div>
+      <div class="status" id="status"></div>
+      <div class="you"><label for="league-pick" class="sr">League</label><select id="league-pick" hidden aria-label="League"></select><span class="msg" id="lg-msg"></span></div>
+      <div class="you"><label for="me">You</label><select id="me"><option value="">Pick your name</option></select></div>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <a href="#league" data-v="league">League</a><a href="#gameweek" data-v="gameweek">Gameweek</a><a href="#insights" data-v="insights">Insights</a><a href="#transfers" data-v="transfers">Transfers</a><a href="#newsletter" data-v="newsletter">Newsletter</a><a href="#write-ups" data-v="write-ups">Write-ups</a><a href="#data" data-v="data">Data</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="demo-banner" class="banner" hidden><span><b>This is an example league with made-up managers.</b> Load your own league to replace it.</span><a class="btn small" href="#data">Load my league</a></div>
+
+  <!-- LEAGUE -->
+  <div class="view" data-view="league">
+    <div class="verdict" id="verdict" aria-label="Headline figures"></div>
+    <div class="youcard" id="youcard" hidden></div>
+    <section>
+      <div class="sechead"><h2 id="table-title">The table</h2><p>Season totals after hits. The weekly score is shaded against that week's FPL global average.</p></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th class="l">Pos</th><th class="l">Move</th><th class="l">Manager</th><th id="th-gw">GW</th><th>Total</th><th>Behind 1st</th></tr></thead>
+        <tbody id="standings"></tbody>
+      </table></div>
+      <div class="legendrow"><span><span class="gw above">pts</span> above global average</span><span><span class="gw below">pts</span> below</span><span><span class="badge" style="margin:0">chip</span> chip played that week</span></div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Form over a span</h2>
+        <div class="controls">
+          <div class="field"><label for="span-from">From</label><select id="span-from"></select></div>
+          <div class="field"><label for="span-to">To</label><select id="span-to"></select></div>
+        </div>
+      </div>
+      <p class="muted" id="span-note" style="font-size:.86rem"></p>
+      <div class="notes" id="insights"></div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>The charts</h2><p id="chartnote"></p></div>
+      <div class="charts">
+        <figure class="chart wide"><h3>League position after each gameweek</h3><svg id="c-bump" role="img" aria-label="League position by gameweek"></svg><figcaption class="cap">Real league positions, ties shared, as FPL ranks them.</figcaption></figure>
+        <figure class="chart"><h3>League against the world</h3>
+          <div class="legend"><span><i style="background:var(--accent)"></i>League avg</span><span><i style="background:var(--ink)"></i>Global avg</span><span><i style="background:var(--accent-soft);height:9px"></i>League range</span><span id="you-leg"></span></div>
+          <svg id="c-week" role="img" aria-label="League and global average by gameweek"></svg><figcaption class="cap">Weekly scores before hits.</figcaption></figure>
+        <figure class="chart"><h3>Consistency against output</h3><svg id="c-scatter" role="img" aria-label="Average weekly score against standard deviation"></svg><figcaption class="cap">Right scores more a week; lower is steadier. Managers who missed a week are left out.</figcaption></figure>
+        <figure class="chart wide"><h3>Overall rank</h3><svg id="c-orank" role="img" aria-label="Overall FPL rank by gameweek"></svg><figcaption class="cap">Rank among all FPL managers, log scale, better rank higher.</figcaption></figure>
+      </div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Squad sheet</h2><p id="sheet-note">Click a column to sort.</p></div>
+      <div class="tablewrap"><table id="sheet">
+        <thead><tr>
+          <th class="l" data-k="rank" aria-sort="ascending"><button type="button">Pos</button></th>
+          <th class="l" data-k="name"><button type="button">Manager</button></th>
+          <th data-k="total"><button type="button">Span pts</button></th>
+          <th data-k="mean"><button type="button">Per wk</button></th>
+          <th data-k="sd"><button type="button">Std dev</button></th>
+          <th data-k="best"><button type="button">Best</button></th>
+          <th data-k="worst"><button type="button">Worst</button></th>
+          <th data-k="beatG"><button type="button">Beat global</button></th>
+          <th data-k="bench"><button type="button">Bench</button></th>
+          <th data-k="hits"><button type="button">Hits</button></th>
+          <th data-k="tx"><button type="button">Transfers</button></th>
+          <th class="l">Chips</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <!-- GAMEWEEK -->
+  <div class="view" data-view="gameweek" hidden>
+    <div id="gw-final" class="banner warn" hidden><span><b>Not final yet.</b> Bonus points and substitutions can still change. Fetch again after the last match is settled.</span></div>
+    <section>
+      <div class="sechead"><h2 id="gw-title">Gameweek</h2><p id="gw-sub"></p></div>
+      <div class="podium" id="podium"></div>
+    </section>
+    <section>
+      <div class="sechead"><h2>What happened</h2><button class="btn small" type="button" data-write="weekly">Write this week's report</button></div>
+      <dl class="facts" id="gw-facts"></dl>
+    </section>
+    <section>
+      <div class="sechead"><h2>Every score</h2><p>Before hits, with the hit shown separately.</p></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th class="l">Manager</th><th>Score</th><th>Hit</th><th>vs global</th><th class="l">Captain</th><th>Transfers</th><th>Bench</th><th class="l">Chip</th></tr></thead>
+        <tbody id="gw-scores"></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <!-- INSIGHTS -->
+  <div class="view" data-view="insights" hidden>
+    <p class="muted" id="ins-empty" hidden>Season stats arrive with the next automatic fetch.</p>
+    <div class="view" id="ins-body" style="gap:36px">
+      <section>
+        <div class="sechead"><h2>The league against reality</h2><p>What the Premier League is producing set against what Aberdeen plc's squads hold.</p></div>
+        <div class="vs">
+          <div><h3>Scoring, but barely owned here</h3><p class="muted" style="font-size:.82rem;margin-bottom:6px">Among the top 40 scorers, owned by under 15% of the league.</p><ol id="ins-missing"></ol></div>
+          <div><h3>The league's favourites, by value</h3><p class="muted" style="font-size:.82rem;margin-bottom:6px">Owned by at least a quarter of the league, lowest points per £m first.</p><ol id="ins-favs"></ol></div>
+        </div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Positions</h2><p>Regulars are players with at least half the available minutes.</p></div>
+        <div class="posgrid" id="ins-pos"></div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Teams</h2><p>The real table, with FPL points produced and the next three fixtures by FPL difficulty.</p></div>
+        <div class="tablewrap"><table id="ins-teams">
+          <thead><tr>
+            <th class="l" data-k="rank"><button type="button">#</button></th><th class="l" data-k="name"><button type="button">Club</button></th>
+            <th data-k="p"><button type="button">P</button></th><th data-k="w"><button type="button">W</button></th><th data-k="d"><button type="button">D</button></th><th data-k="l"><button type="button">L</button></th>
+            <th data-k="gf"><button type="button">GF</button></th><th data-k="ga"><button type="button">GA</button></th><th data-k="gd"><button type="button">GD</button></th><th data-k="cs"><button type="button">CS</button></th>
+            <th data-k="pts"><button type="button">Pts</button></th><th class="l">Form</th><th data-k="fplPts"><button type="button">FPL pts</button></th><th class="l">Top FPL player</th><th data-k="leagueOwn"><button type="button">League picks</button></th><th class="l">Next 3</th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Players</h2>
+          <div class="controls"><div class="seg" id="ins-posf"><button type="button" data-p="">All</button><button type="button" data-p="GKP">GKP</button><button type="button" data-p="DEF">DEF</button><button type="button" data-p="MID">MID</button><button type="button" data-p="FWD">FWD</button></div>
+          <div class="field"><label for="ins-min">Minimum minutes</label><select id="ins-min"><option value="0">Any</option><option value="270" selected>270</option><option value="450">450</option></select></div></div>
+        </div>
+        <p class="muted" style="font-size:.82rem">G+A vs xGI: positive means scoring and assisting more than the chances suggest, which tends not to last; negative means due a return. Click a column to sort. Top 40 shown.</p>
+        <div class="tablewrap"><table id="ins-players">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Player</button></th><th class="l">Pos</th>
+            <th data-k="cost"><button type="button">£m</button></th><th data-k="pts" aria-sort="descending"><button type="button">Pts</button></th><th data-k="ppm"><button type="button">Pts/£m</button></th>
+            <th data-k="per90"><button type="button">Pts/90</button></th><th data-k="form"><button type="button">Form</button></th><th data-k="mins"><button type="button">Mins</button></th>
+            <th data-k="goals"><button type="button">G</button></th><th data-k="assists"><button type="button">A</button></th><th data-k="xgi"><button type="button">xGI</button></th><th data-k="gaVsXgi"><button type="button">G+A vs xGI</button></th>
+            <th data-k="cs"><button type="button">CS</button></th><th data-k="bonus"><button type="button">Bonus</button></th><th data-k="dc"><button type="button">Def con</button></th><th data-k="leagueOwnPct"><button type="button">League</button></th><th data-k="globalOwn"><button type="button">Global</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- TRANSFERS -->
+  <div class="view" data-view="transfers" hidden>
+    <section>
+      <div class="sechead"><h2>Transfer planner</h2><p>A simple, explainable model. Treat it as a second opinion, not a verdict.</p></div>
+      <div class="controls">
+        <div class="field"><label for="adv-who">Whose team</label><select id="adv-who"></select></div>
+        <div class="field"><label>Look ahead</label><div class="seg" id="adv-h"><button type="button" data-h="3">3 GWs</button><button type="button" data-h="5">5 GWs</button><button type="button" data-h="8">8 GWs</button></div></div>
+        <div class="field"><label for="adv-ft">Free transfers</label><input id="adv-ft" type="number" min="0" max="5" step="1" style="width:5.5em"></div>
+        <button class="btn small" type="button" data-write="advice">Explain it in a write-up</button>
+      </div>
+      <p class="muted" id="adv-ft-note" style="font-size:.82rem"></p>
+    </section>
+    <div id="adv-body" class="view" style="gap:28px"></div>
+  </div>
+
+  <!-- NEWSLETTER -->
+  <div class="view" data-view="newsletter" hidden>
+    <section>
+      <div class="sechead"><h2>Newsletter</h2><p>Built automatically the morning after each gameweek is final, in the same layout as your Word issues.</p></div>
+      <div class="nl-actions"><button class="btn primary" type="button" id="nl-save" hidden>Save the Word file</button><span class="msg" id="nl-msg"></span></div>
+      <div id="nl-body"><p class="muted">No newsletter yet. The first one appears here after the daily task has run for a finished gameweek.</p></div>
+    </section>
+  </div>
+
+  <!-- WRITE-UPS -->
+  <div class="view" data-view="write-ups" hidden>
+    <section id="auto-wrap" hidden>
+      <div class="sechead"><h2 id="auto-title">This week's report</h2><p id="auto-sub"></p></div>
+      <div class="out">
+        <div class="out-bar"><span class="eyebrow" id="auto-label"></span><button class="btn small" type="button" id="auto-copy">Copy</button></div>
+        <div class="out-text" id="auto-text"></div>
+        <div class="check" id="auto-check" hidden></div>
+      </div>
+    </section>
+    <section>
+      <div class="sechead"><h2>Write-ups</h2><p>Claude writes from the numbers on this page, in the voice you pick. Every number it uses is then checked against that data.</p></div>
+      <div class="writer">
+        <div class="opts">
+          <div class="field"><label>What to write</label><div class="seg" id="w-kind"><button type="button" data-k="weekly">Weekly</button><button type="button" data-k="trend">Review</button><button type="button" data-k="advice">Transfers</button></div></div>
+          <p class="muted" id="w-kind-note" style="font-size:.8rem"></p>
+          <div class="field"><label for="w-persona">Voice</label><select id="w-persona">
+            <option value="banter">Casual banter bot</option><option value="pundit">Serious sports pundit</option><option value="manager">Manager under pressure</option><option value="plain">Plain and friendly</option><option value="custom">My own voice…</option>
+          </select></div>
+          <div class="field" id="w-custom-wrap" hidden><label for="w-custom">Describe the voice</label><textarea id="w-custom" rows="5" placeholder="Who is talking, how they sound, what they care about, emoji rules."></textarea></div>
+          <div class="field"><label for="w-fav">Running joke about</label><select id="w-fav"><option value="">Nobody</option></select></div>
+          <div class="field"><label for="w-dest">Going to</label><select id="w-dest"><option value="whatsapp">WhatsApp group</option><option value="teams">Teams or Slack</option><option value="me">Just me</option></select></div>
+          <div class="field"><label for="w-extra">Anything to add</label><textarea id="w-extra" rows="3" placeholder="Context the data can't know: a rivalry, a forfeit, real football news for the manager voice."></textarea></div>
+          <button class="btn primary" type="button" id="w-go">Write it</button>
+          <p class="msg" id="w-msg"></p>
+        </div>
+        <div class="out">
+          <div class="out-bar"><span class="eyebrow" id="w-label">Nothing written yet</span><span style="display:flex;gap:8px"><button class="btn small" type="button" id="w-stop" hidden>Stop</button><button class="btn small" type="button" id="w-copy" disabled>Copy</button></span></div>
+          <div class="out-text idle" id="w-out">Pick what to write and a voice, then press Write it.</div>
+          <div class="check" id="w-check" hidden></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- DATA -->
+  <div class="view" data-view="data" hidden>
+    <section>
+      <div class="sechead"><h2>Load your league</h2><p>With the automatic GitHub fetch set up, this page updates itself every morning and nothing here is needed. This is the manual way, for a one-off or if the automatic fetch fails.</p></div>
+      <div class="steps">
+        <div class="stepbox"><h3>Get the script</h3><p>One Python file, nothing to install. Needs Python 3.9 or newer.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="dl-script" hidden>Save fpl_fetch.py</button><button class="btn small" type="button" id="copy-script">Copy the code</button></div><details><summary>Show the code</summary><pre class="code" id="script-view"></pre></details></div>
+        <div class="stepbox"><h3>Run it</h3><p>In a terminal, in the folder with the script. Your league id is the number in the league's address on the FPL site, and it changes every season.</p><code>python3 fpl_fetch.py 123456</code><p class="muted" style="font-size:.82rem">On Windows use <code>py</code>. Best on Tuesday morning, once Monday's bonus points are final.</p></div>
+        <div class="stepbox"><h3>Drop the file here</h3><p>It writes <code>fpl_bundle.json</code>. Drop it below or pick it. It's saved to your account, so your phone sees it too.</p></div>
+      </div>
+      <label class="drop" id="drop" for="file"><b>Drop fpl_bundle.json</b><span class="muted">or click to choose it</span><input type="file" id="file" accept=".json,application/json" hidden></label>
+      <p class="msg" id="load-msg" role="status"></p>
+    </section>
+    <section>
+      <div class="sechead"><h2>What's loaded</h2></div>
+      <p id="loaded-info" class="muted"></p>
+      <div class="confirm"><button class="btn small" type="button" id="use-demo">Show the example league</button><button class="btn small" type="button" id="clear">Remove my league from this page</button>
+        <span class="confirm" id="clear-confirm" hidden><span id="clear-q"></span><button class="btn small" type="button" id="clear-yes">Remove</button><button class="btn small" type="button" id="clear-no">Keep it</button></span></div>
+    </section>
+  </div>
+
+  <footer id="foot">Data from the public FPL API via your own computer. Scores before hits are compared with the FPL global average; totals and positions are after hits. Std dev is the sample standard deviation of weekly scores after hits.</footer>
+</div>
+
+<script type="text/plain" id="t-rules">
+Rules for every answer
+- Use only numbers that appear in the DATA. Never estimate a score, invent a transfer or name someone who is not in the league. If a field is empty or null, say nothing about it.
+- Judge every weekly score against the FPL global average for that gameweek. The league average is context, not the benchmark.
+- Weekly scores are before transfer hits; totals, ranks and gaps are after hits. When a manager took a hit, give both, for example "48, or 44 after the hit".
+- Bench points and an armband that moved to the vice-captain are luck, not skill. Say so.
+- Fact-check before you answer: find every number you wrote in the DATA and recompute every comparison ("most", "only", "more than", "biggest"). Fix anything that does not match.
+- Never use tables or markdown headings.
+</script>
+<script type="text/plain" id="p-banter">
+Persona: Casual Banter Bot
+You are the resident wind-up merchant of an FPL mini-league.
+Voice: informal, quick, playful. You are the person in the group chat who notices the funny detail everyone else missed. Short sentences. Land the joke and move on.
+What you care about: drama over tactics. Rivalries, near-misses, someone whose captain blanked, a manager who took a -8 hit and went backwards. You treat the mini-league like a soap opera and you know the plot.
+Rules:
+- Punch up, not down. Tease the leaders hardest; be gentle with whoever is bottom: a light dig, not a pile-on.
+- Every joke must be anchored to a real number from the data. A joke about a transfer that did not happen is just wrong.
+- Emojis are welcome and should carry meaning (🥇 🚀 🤦 🤯 😂 🧊). Two or three per section, not per sentence.
+Signature moves:
+- Give the week a name in the first line ("The Week Of The Empty Bench").
+- Award one made-up trophy, named after what happened.
+- Close with a one-line prediction for next week that you can be held to.
+</script>
+<script type="text/plain" id="p-pundit">
+Persona: Serious Sports Pundit
+You are a football analyst in the mould of a studio pundit, covering an FPL mini-league as though it were a title race.
+Voice: measured, tactical, data-led. You use the language of the game naturally ("took his chances", "a squad stretched thin"). You never sound like a spreadsheet, but every claim traces back to a figure.
+What you care about: process over outcome. A manager who consistently beats the global average is doing something right even in mid-table. A manager riding one lucky captaincy is a story about to go wrong. Consistency, squad depth, and whether an approach is repeatable.
+Rules:
+- Emojis sparingly and professionally (⚽ 🎯 📊), no more than three.
+- Always contextualise against the FPL global average.
+- Distinguish luck from skill out loud.
+FAVOURITE: If a favourite manager is named, they are your favourite subject and your affection takes the form of relentless backhanded praise: every risk they take is the mark of a manager operating at a different level, and their position is the stick you beat everyone else with. If they made an obvious mistake, be encouraging anyway. Check the table for where they actually sit before you write: never claim a lead they do not have.
+Signature moves:
+- Open with the single most interesting decision of the period.
+- Identify one manager whose underlying process deserves more credit than their position suggests.
+- Close with where the table is heading if form holds, and say plainly that form does not usually hold.
+</script>
+<script type="text/plain" id="p-manager">
+Persona: The Manager Under Pressure
+You are a top-flight football manager in the middle of a crisis, moonlighting as the analyst for an FPL mini-league. You are in a relegation fight, asked about your future in every press conference, and out of patience with players who cannot do the basics.
+If the extra context names a real manager and their current crisis, adopt that situation and use it. Otherwise stay a nameless manager and invent nothing about real people.
+Voice: intense, exasperated, darkly funny about your own situation. Short, punched sentences. Always one bad result from the end.
+Your FPL philosophy: the basics matter (a player out of form gets taken out); ruthlessness is required (take the hit, no loyalty to deadwood); preparation is everything (bad transfers and benched points are the same failure: nobody checked the conditions).
+Mandatory bits, each once, worded differently every time:
+1. FAVOURITE: Only if a favourite manager is named. They are the yardstick. Find them in the table first. Riding high: anyone above them earns awed praise. Mid-table or worse: the yardstick has slipped and you take it personally. Never claim they dominate unless the table says so.
+2. The relegation roast: find who is bottom. Ask them whether they are having a worse season than your club.
+3. The slip: when you see a bad transfer or plain negligence, say people are slipping around like the pitch is an ice rink and tell them to check their studs.
+Emojis: 😡 ⛸️ 🧤 ⬇️ 🤦 as punctuation for anger, not decoration.
+Be savage about decisions, never about people. Every accusation is backed by a real number.
+</script>
+<script type="text/plain" id="p-plain">
+Persona: plain and friendly. Write like a well-informed friend summarising the league. Clear, warm, no gimmicks, at most two emojis.
+</script>
+<script type="text/plain" id="fetch-src">#!/usr/bin/env python3
+"""Fetch your FPL mini-league into one file for the FPL League Room page.
+
+The page can't reach the FPL website itself (browsers block it), so this
+script does the fetching on your own computer and writes fpl_bundle.json.
+Drop that file onto the page. Everything else happens there.
+
+    python3 fpl_fetch.py                 # league id from settings.json
+    python3 fpl_fetch.py 123456          # or give it here
+    python3 fpl_fetch.py 123456 --gw 8   # a particular gameweek
+
+The league id is the number in the league's address:
+fantasy.premierleague.com/leagues/<THIS NUMBER>/standings/c
+It changes every season.
+
+Standard library only. Python 3.9 or newer.
+"""
+
+import argparse
+import datetime as dt
+import json
+import re
+import sys
+import time
+import urllib.error
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+CACHE = HERE / ".fpl_cache"
+BASE = "https://fantasy.premierleague.com/api"
+MAX_MANAGERS = 150
+
+
+def fail(msg):
+    sys.exit(f"\nStopped: {msg}\n")
+
+
+def get(path, ttl=600):
+    """GET a JSON endpoint, cached on disk for 10 minutes."""
+    CACHE.mkdir(exist_ok=True)
+    key = CACHE / (re.sub(r"[^A-Za-z0-9]+", "_", path).strip("_") + ".json")
+    if key.exists() and time.time() - key.stat().st_mtime < ttl:
+        return json.loads(key.read_text())
+    req = urllib.request.Request(BASE + path, headers={"User-Agent": "fpl-league-room/1.0"})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read().decode())
+            key.write_text(json.dumps(data))
+            return data
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            if e.code == 503:
+                fail("the FPL site is updating (it does this between gameweeks). Try again in an hour.")
+            if attempt == 2:
+                fail(f"the FPL site answered {e.code} for {path}.")
+        except urllib.error.URLError as e:
+            if attempt == 2:
+                fail(f"could not reach fantasy.premierleague.com ({e.reason}).")
+        time.sleep(1.5 * (attempt + 1))
+
+
+def pmap(fn, items):
+    with ThreadPoolExecutor(8) as ex:
+        return list(ex.map(fn, items))
+
+
+def picks_rows(p):
+    """Compact picks: [element, position, multiplier, is_captain, is_vice]."""
+    if not p:
+        return None
+    eh = p.get("entry_history") or {}
+    return {
+        "chip": p.get("active_chip"),
+        "bank": eh.get("bank", 0),
+        "picks": [[x["element"], x["position"], x["multiplier"], int(x["is_captain"]), int(x["is_vice_captain"])]
+                  for x in p.get("picks", [])],
+    }
+
+
+def captain_history(managers_rows, done_gws, path):
+    """Season captaincy per manager, kept in a file so each run only fetches new gameweeks.
+    Stored per gameweek as [element, multiplier, points the armband delivered]."""
+    hist = {}
+    if path.exists():
+        try:
+            hist = json.loads(path.read_text())
+        except ValueError:
+            hist = {}
+    lives = {}
+
+    def live_pts(g):
+        if g not in lives:
+            lv = get(f"/event/{g}/live/", ttl=86400) or {"elements": []}
+            lives[g] = {x["id"]: x["stats"].get("total_points", 0) for x in lv.get("elements", [])}
+        return lives[g]
+
+    todo = [(r["entry"], g) for r in managers_rows for g in done_gws if str(g) not in hist.get(str(r["entry"]), {})]
+    for g in sorted({g for _, g in todo}):
+        live_pts(g)
+
+    def one(job):
+        e, g = job
+        p = get(f"/entry/{e}/event/{g}/picks/", ttl=86400)
+        if not p:
+            return e, g, None
+        arm = [x for x in p.get("picks", []) if x["multiplier"] >= 2]
+        if not arm:
+            return e, g, [None, 0, 0]
+        a = max(arm, key=lambda x: x["multiplier"])
+        return e, g, [a["element"], a["multiplier"], lives[g].get(a["element"], 0) * a["multiplier"]]
+
+    if todo:
+        print(f"Fetching {len(todo)} past captain picks...")
+    for e, g, row in pmap(one, todo):
+        if row is not None:
+            hist.setdefault(str(e), {})[str(g)] = row
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(hist, separators=(",", ":")))
+    return hist
+
+
+def run_one(args):
+    bs = get("/bootstrap-static/")
+    events = bs["events"]
+    checked = [e["id"] for e in events if e.get("finished") and e.get("data_checked")]
+    finished = [e["id"] for e in events if e.get("finished")]
+    gw = args.gw or (max(checked) if checked else (max(finished) if finished else None))
+    if not gw:
+        fail("no gameweek has been played yet this season.")
+    current = next((e["id"] for e in events if e.get("is_current")), gw)
+    squad_gw = max(gw, current)
+
+    rows, page = [], 1
+    while True:
+        s = get(f"/leagues-classic/{args.league_id}/standings/?page_standings={page}")
+        if s is None:
+            fail(f"league {args.league_id} was not found. Check the id (it changes every season; "
+                 "head-to-head leagues aren't supported).")
+        meta = s["league"]
+        rows += s["standings"]["results"]
+        if not s["standings"]["has_next"] or len(rows) >= MAX_MANAGERS:
+            break
+        page += 1
+    total_managers = len(rows) if not s["standings"]["has_next"] else None
+    if len(rows) > MAX_MANAGERS:
+        print(f"Note: the league has more than {MAX_MANAGERS} managers. Keeping the top {MAX_MANAGERS}.")
+        rows = rows[:MAX_MANAGERS]
+
+    def one(r):
+        e = r["entry"]
+        h = get(f"/entry/{e}/history/") or {}
+        picks = get(f"/entry/{e}/event/{gw}/picks/")
+        prev = get(f"/entry/{e}/event/{gw - 1}/picks/") if gw > 1 else None
+        squad = picks if squad_gw == gw else get(f"/entry/{e}/event/{squad_gw}/picks/")
+        tx = get(f"/entry/{e}/transfers/") or []
+        return {
+            "entry": e,
+            "rank": r.get("rank"),
+            "last_rank": r.get("last_rank"),
+            "name": r["player_name"],
+            "team": r["entry_name"],
+            # [event, points, total_points, overall_rank, bank, value, transfers, transfer_cost, bench]
+            "history": [[x["event"], x["points"], x["total_points"], x.get("overall_rank") or 0, x["bank"],
+                         x["value"], x["event_transfers"], x["event_transfers_cost"], x["points_on_bench"]]
+                        for x in h.get("current", [])],
+            "chips": [[c["name"], c["event"]] for c in h.get("chips", [])],
+            "picks": picks_rows(picks),
+            "prev": picks_rows(prev),
+            "squad": picks_rows(squad),
+            "transfers": [[t["element_in"], t["element_out"], t["event"]] for t in tx if t["event"] == gw],
+        }
+
+    print(f"Fetching {len(rows)} managers from {meta['name']}...")
+    managers = pmap(one, rows)
+
+    live = get(f"/event/{gw}/live/") or {"elements": []}
+    fixtures = get("/fixtures/?future=1") or []
+    gw_fixtures = get(f"/fixtures/?event={gw}") or []
+    all_fixtures = get("/fixtures/") or []
+
+    out = HERE / args.out
+    done = sorted(e["id"] for e in events if e.get("finished") and e.get("data_checked") and e["id"] <= gw)
+    caps = captain_history(rows, done, out.parent / "captains.json")
+    for m in managers:
+        c = caps.get(str(m["entry"]), {})
+        m["captains"] = [[int(g)] + c[g] for g in sorted(c, key=int) if int(g) <= gw]
+
+    bundle = {
+        "v": 1,
+        "fetched": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
+        "league": {"id": meta["id"], "name": meta["name"], "complete": total_managers is not None and total_managers <= MAX_MANAGERS},
+        "gw": gw,
+        "squad_gw": squad_gw,
+        # the gameweek the league's own rank and last_rank refer to
+        "standings_gw": current,
+        "events": [{"id": e["id"], "avg": e.get("average_entry_score"), "high": e.get("highest_score"),
+                    "finished": bool(e.get("finished")), "checked": bool(e.get("data_checked")),
+                    "current": bool(e.get("is_current")), "next": bool(e.get("is_next")),
+                    "deadline": e.get("deadline_time")} for e in events],
+        "teams": [[t["id"], t["short_name"], t["name"]] for t in bs["teams"]],
+        # [id, web_name, team, position(1-4), now_cost, form, ppg, minutes, status, chance_next, news, selected_by, total_points, transfers_in_event]
+        "elements": [[e["id"], e["web_name"], e["team"], e["element_type"], e["now_cost"], float(e["form"] or 0),
+                      float(e["points_per_game"] or 0), e["minutes"], e["status"], e.get("chance_of_playing_next_round"),
+                      e.get("news") or "", float(e["selected_by_percent"] or 0), e["total_points"], e.get("transfers_in_event", 0)]
+                     for e in bs["elements"]],
+        # season stats per player: [id, goals, assists, clean_sheets, goals_conceded, bonus, xG, xA, xGI, starts, saves, bps, defensive_contribution]
+        "stats": [[e["id"], e.get("goals_scored", 0), e.get("assists", 0), e.get("clean_sheets", 0), e.get("goals_conceded", 0),
+                   e.get("bonus", 0), float(e.get("expected_goals") or 0), float(e.get("expected_assists") or 0),
+                   float(e.get("expected_goal_involvements") or 0), e.get("starts", 0), e.get("saves", 0), e.get("bps", 0),
+                   e.get("defensive_contribution", 0)]
+                  for e in bs["elements"] if e.get("minutes")],
+        # every finished match this season: [event, home, away, home goals, away goals]
+        "results": [[f["event"], f["team_h"], f["team_a"], f["team_h_score"], f["team_a_score"]]
+                    for f in all_fixtures if f.get("finished") and f.get("event")],
+        "fixtures": [[f["event"], f["team_h"], f["team_a"], f["team_h_difficulty"], f["team_a_difficulty"]]
+                     for f in fixtures if f.get("event")],
+        # [points, minutes, goals, assists, bonus, clean_sheet]
+        "live": {str(x["id"]): [x["stats"].get("total_points", 0), x["stats"].get("minutes", 0), x["stats"].get("goals_scored", 0),
+                                x["stats"].get("assists", 0), x["stats"].get("bonus", 0), x["stats"].get("clean_sheets", 0)]
+                 for x in live.get("elements", []) if x["stats"].get("minutes", 0) or x["stats"].get("total_points", 0)},
+        # [home team, away team, home score, away score]
+        "gw_fixtures": [[f["team_h"], f["team_a"], f.get("team_h_score"), f.get("team_a_score")] for f in gw_fixtures],
+        "managers": managers,
+    }
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(bundle, ensure_ascii=False, separators=(",", ":")))
+    final = gw in checked
+    print(f"\nWrote {args.out} ({out.stat().st_size // 1024} KB): {meta['name']}, gameweek {gw}"
+          + ("" if final else " (NOT final yet: bonus points may still change)") + ".")
+    print("Drop it onto the FPL League Room page.\n")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Fetch FPL mini-leagues for FPL League Room")
+    ap.add_argument("league_id", type=int, nargs="?")
+    ap.add_argument("--gw", type=int, help="gameweek to report on (default: latest final one)")
+    ap.add_argument("--out", default=None)
+    args = ap.parse_args()
+    settings = HERE / "settings.json"
+    cfg = json.loads(settings.read_text()) if settings.exists() else {}
+    if args.league_id:
+        leagues = [args.league_id]
+    else:
+        leagues = [cfg.get("league_id")] + [x for x in cfg.get("other_leagues", []) if x != cfg.get("league_id")]
+        leagues = [x for x in leagues if x]
+    if not leagues:
+        fail("no league id. Put it in settings.json (\"league_id\": 123456) or pass it: python3 fpl_fetch.py 123456")
+    if args.gw:
+        leagues = leagues[:1]  # a past gameweek is only fetched for the main league
+    data_dir = "data/" if (HERE / "data").is_dir() else ""
+    status = {"run": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"), "leagues": {}}
+    for i, lid in enumerate(leagues):
+        out = args.out if (args.out and i == 0) else (f"{data_dir}fpl_bundle.json" if i == 0 else f"{data_dir}fpl_bundle_{lid}.json")
+        one = argparse.Namespace(league_id=lid, gw=args.gw, out=out)
+        if i == 0:
+            run_one(one)
+            status["leagues"][str(lid)] = "ok"
+        else:
+            # A problem with an extra league must not stop the main one being saved.
+            try:
+                run_one(one)
+                status["leagues"][str(lid)] = "ok"
+            except SystemExit as e:
+                print(f"Skipped league {lid}: {e}")
+                status["leagues"][str(lid)] = str(e).strip()
+    if data_dir and not args.gw:
+        (HERE / data_dir / "fetch_status.json").write_text(json.dumps(status, indent=1))
+
+
+if __name__ == "__main__":
+    main()
+</script>
+<script>
+/* FPL League Room: pure logic. No DOM here, so it can be tested in Node.
+   Every metric is defined once, in this file, and both the page and the
+   write-ups read from it. */
+
+const POS = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
+const CHIP = { "3xc": "Triple Captain", wildcard: "Wildcard", freehit: "Free Hit", bboost: "Bench Boost", manager: "Assistant Manager" };
+const SQUAD_CHIPS = new Set(["wildcard", "freehit"]);
+const DIFF_MULT = { 1: 1.25, 2: 1.12, 3: 1.0, 4: 0.88, 5: 0.75 };
+
+const r1 = (x) => Math.round(x * 10) / 10;
+const sum = (a) => a.reduce((s, x) => s + x, 0);
+const mean = (a) => (a.length ? sum(a) / a.length : null);
+/* Sample standard deviation (n-1). The one definition of "consistency". */
+const sdev = (a) => {
+  if (a.length < 2) return null;
+  const m = mean(a);
+  return Math.sqrt(sum(a.map((x) => (x - m) ** 2)) / (a.length - 1));
+};
+
+/* ------------------------------------------------------------ load */
+
+function validateBundle(b) {
+  if (!b || typeof b !== "object") return "That file isn't JSON from the fetch script.";
+  if (b.v !== 1) return "That file isn't from fpl_fetch.py (or it's from a different version).";
+  if (!Array.isArray(b.managers) || !b.managers.length) return "The file has no managers in it.";
+  if (!b.gw) return "The file doesn't say which gameweek it covers.";
+  return null;
+}
+
+function build(b) {
+  const ev = new Map(b.events.map((e) => [e.id, e]));
+  const teams = new Map(b.teams.map((t) => [t[0], { short: t[1], name: t[2] }]));
+  const P = new Map(b.elements.map((r) => [r[0], {
+    id: r[0], name: r[1], team: r[2], pos: r[3], cost: r[4] / 10, form: r[5], ppg: r[6],
+    mins: r[7], status: r[8], chance: r[9], news: r[10], own: r[11], total: r[12], raw: r,
+  }]));
+  const M = b.managers.map((m) => ({
+    entry: m.entry, name: m.name, team: m.team,
+    hist: new Map(m.history.map((h) => [h[0], {
+      ev: h[0], pts: h[1], total: h[2], orank: h[3], bank: h[4], value: h[5], tx: h[6], cost: h[7], bench: h[8],
+    }])),
+    chips: m.chips || [], picks: m.picks, prev: m.prev, squad: m.squad, transfers: m.transfers || [], captains: m.captains || [], rank: m.rank || null, lastRank: m.last_rank || null,
+  }));
+  const live = new Map(Object.entries(b.live || {}).map(([k, v]) => [+k, { pts: v[0], mins: v[1] }]));
+  const gws = [...new Set(M.flatMap((m) => [...m.hist.keys()]))].filter((g) => g <= b.gw).sort((a, c) => a - c);
+  const S = { b, ev, teams, P, M, live, gw: b.gw, gws, first: gws[0], _rank: new Map() };
+  return S;
+}
+
+const avgOf = (S, g) => { const e = S.ev.get(g); return e && e.avg != null ? e.avg : null; };
+const teamShort = (S, id) => (S.teams.get(id) || { short: "?" }).short;
+const pname = (S, id) => (S.P.get(id) || { name: "#" + id }).name;
+const livePts = (S, id) => (S.live.get(id) || { pts: 0 }).pts;
+const chipAt = (m, g) => { const c = m.chips.find((c) => c[1] === g); return c ? c[0] : null; };
+
+/* ------------------------------------------------------------ standings */
+
+/* The league table after gameweek g. Totals are FPL's own season totals,
+   which are already net of transfer hits. Equal totals share a rank, as in FPL. */
+function tableAt(S, g) {
+  if (S._rank.has(g)) return S._rank.get(g);
+  const rows = S.M.map((m) => { const h = m.hist.get(g); return h ? { m, total: h.total, pts: h.pts, cost: h.cost } : null; })
+    .filter(Boolean)
+    .sort((a, c) => c.total - a.total || c.pts - a.pts || a.m.name.localeCompare(c.m.name));
+  let rank = 0, prev = null;
+  rows.forEach((r, i) => { if (r.total !== prev) { rank = i + 1; prev = r.total; } r.rank = rank; });
+  S._rank.set(g, rows);
+  return rows;
+}
+const rankOf = (S, m, g) => { const r = tableAt(S, g).find((x) => x.m === m); return r ? r.rank : null; };
+
+/* ------------------------------------------------------------ span stats */
+
+/* One manager across gameweeks a..b. "net" = points minus hits.
+   "beatG" compares the weekly score before hits with FPL's global average,
+   which is how FPL reports that average. */
+function spanStats(S, m, a, b) {
+  const rows = [];
+  for (let g = a; g <= b; g++) { const h = m.hist.get(g); if (h) rows.push(h); }
+  if (!rows.length) return null;
+  const net = rows.map((h) => h.pts - h.cost);
+  const withAvg = rows.filter((h) => avgOf(S, h.ev) != null);
+  const bestI = net.indexOf(Math.max(...net)), worstI = net.indexOf(Math.min(...net));
+  const sd = sdev(net);
+  return {
+    m, played: rows.length, span: b - a + 1,
+    net, gws: rows.map((h) => h.ev),
+    total: sum(net),
+    mean: r1(mean(net)),
+    sd: sd == null ? null : r1(sd),
+    best: { pts: net[bestI], gw: rows[bestI].ev },
+    worst: { pts: net[worstI], gw: rows[worstI].ev },
+    beatG: withAvg.filter((h) => h.pts > avgOf(S, h.ev)).length,
+    vsG: sum(withAvg.map((h) => h.pts - avgOf(S, h.ev))),
+    bench: sum(rows.map((h) => h.bench)),
+    hits: sum(rows.map((h) => h.cost)),
+    tx: sum(rows.map((h) => h.tx)),
+    chips: m.chips.filter((c) => c[1] >= a && c[1] <= b).map((c) => [CHIP[c[0]] || c[0], c[1]]),
+    orank: rows.map((h) => h.orank),
+  };
+}
+
+function leagueAvg(S, g) {
+  const p = S.M.map((m) => m.hist.get(g)).filter(Boolean).map((h) => h.pts);
+  return p.length ? r1(mean(p)) : null;
+}
+
+/* Insight cards for the span, computed rather than written. Each returns
+   null when the data doesn't separate anyone, so nothing is invented. */
+function insights(S, a, b) {
+  const all = S.M.map((m) => spanStats(S, m, a, b)).filter(Boolean);
+  const full = all.filter((s) => s.played === s.span);
+  const out = [];
+  const n = b - a + 1;
+  const end = tableAt(S, b);
+  const top3 = new Set(end.filter((r) => r.rank <= 3).map((r) => r.m));
+
+  if (n >= 3 && full.length > 2) {
+    const c = full.slice().sort((x, y) => x.sd - y.sd)[0];
+    const v = full.slice().sort((x, y) => y.sd - x.sd)[0];
+    if (c.sd !== v.sd) out.push({ kind: "skill", stat: String(c.sd), unit: "pts std dev", head: `${c.m.name} is the steadiest`,
+      body: `Weekly scores swing by ${c.sd} points around an average of ${c.mean}. At the other end, ${v.m.name} swings by ${v.sd}.` });
+  }
+  const quiet = full.filter((s) => !top3.has(s.m)).sort((x, y) => y.beatG - x.beatG || y.vsG - x.vsG)[0];
+  if (quiet && quiet.beatG > n / 2) {
+    out.push({ kind: "skill", stat: `${quiet.beatG}/${n}`, unit: "weeks above global", head: `${quiet.m.name}: better than the table says`,
+      body: `Beat the FPL global average in ${quiet.beatG} of ${n} weeks while sitting ${ordinal(rankOf(S, quiet.m, b))}. The process is sound; the total hasn't caught up yet.` });
+  }
+  const hitter = all.slice().sort((x, y) => y.hits - x.hits)[0];
+  if (hitter && hitter.hits > 0) {
+    out.push({ kind: "cost", stat: `−${hitter.hits}`, unit: "pts on hits", head: `${hitter.m.name} pays to play`,
+      body: `${hitter.tx} transfers and ${hitter.hits} points spent on hits across the span. That is ${r1(hitter.hits / n)} a week before any new player scores.` });
+  }
+  const bench = all.slice().sort((x, y) => y.bench - x.bench)[0];
+  if (bench && bench.bench > 0 && all.some((s) => s.bench !== bench.bench)) {
+    out.push({ kind: "luck", stat: String(bench.bench), unit: "pts on the bench", head: `${bench.m.name}'s bench`,
+      body: `Points left among the substitutes. Partly selection, mostly luck: nobody plays their whole squad.` });
+  }
+  const startG = S.gws.includes(a - 1) ? a - 1 : a;
+  if (startG < b) {
+    const moves = S.M.map((m) => ({ m, from: rankOf(S, m, startG), to: rankOf(S, m, b) })).filter((x) => x.from && x.to);
+    const up = moves.sort((x, y) => (y.from - y.to) - (x.from - x.to))[0];
+    if (up && up.from > up.to) out.push({ kind: "skill", stat: `+${up.from - up.to}`, unit: "places", head: `${up.m.name} is on the move`,
+      body: `From ${ordinal(up.from)} after GW${startG} to ${ordinal(up.to)} after GW${b}, the biggest climb in the league.` });
+  }
+  const lv = [];
+  for (let g = a; g <= b; g++) { const l = leagueAvg(S, g), G = avgOf(S, g); if (l != null && G != null) lv.push(l - G); }
+  if (lv.length) {
+    const t = r1(sum(lv));
+    out.push({ kind: "world", stat: (t > 0 ? "+" : t < 0 ? "−" : "") + Math.abs(t), unit: "pts vs global", head: t >= 0 ? "The league beats the world" : "The world beats the league",
+      body: `Added up week by week, the league's average score finished ${Math.abs(t)} points ${t >= 0 ? "above" : "below"} the FPL global average over GW${a} to GW${b}.` });
+  }
+  return out;
+}
+
+function ordinal(n) {
+  if (n == null) return "?";
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/* ------------------------------------------------------------ gameweek */
+
+function captaincy(S, picks) {
+  if (!picks) return null;
+  const ps = picks.picks.map((p) => ({ el: p[0], position: p[1], mult: p[2], cap: !!p[3], vice: !!p[4] }));
+  const nominal = ps.find((p) => p.cap);
+  const arm = ps.filter((p) => p.mult >= 2).sort((a, b) => b.mult - a.mult)[0];
+  const d = (p) => p && { name: pname(S, p.el), raw: livePts(S, p.el), mult: p.mult, delivered: livePts(S, p.el) * p.mult };
+  return { nominal: d(nominal), effective: d(arm), moved: !!(nominal && arm && nominal.el !== arm.el) };
+}
+
+function gameweek(S) {
+  const g = S.gw;
+  const rows = S.M.map((m) => {
+    const h = m.hist.get(g);
+    if (!h) return null;
+    const chip = chipAt(m, g) || (m.picks && m.picks.chip) || null;
+    const transfers = m.transfers.filter((t) => t[2] === g).map((t) => ({
+      in: pname(S, t[0]), inPts: livePts(S, t[0]), out: pname(S, t[1]), outPts: livePts(S, t[1]),
+      net: livePts(S, t[0]) - livePts(S, t[1]),
+    }));
+    let chipGain = null;
+    if (m.picks && chip === "3xc") {
+      const c = m.picks.picks.find((p) => p[2] >= 3); if (c) chipGain = livePts(S, c[0]);
+    } else if (m.picks && chip === "bboost") {
+      chipGain = sum(m.picks.picks.filter((p) => p[1] >= 12).map((p) => livePts(S, p[0])));
+    } else if (chip === "wildcard" && m.prev) {
+      const capEl = (m.prev.picks.find((p) => p[3]) || [])[0];
+      const old = sum(m.prev.picks.filter((p) => p[1] <= 11).map((p) => livePts(S, p[0]) * (p[0] === capEl ? 2 : 1)));
+      chipGain = h.pts - old;
+    }
+    const benchList = m.picks ? m.picks.picks.filter((p) => p[2] === 0).map((p) => ({ name: pname(S, p[0]), pts: livePts(S, p[0]) })).sort((a, b) => b.pts - a.pts) : [];
+    return {
+      m, pts: h.pts, hit: h.cost, net: h.pts - h.cost, total: h.total, tx: h.tx, bench: h.bench,
+      chip, chipLabel: chip ? CHIP[chip] || chip : null, chipGain,
+      cap: captaincy(S, m.picks), transfers, topBench: benchList[0] || null,
+    };
+  }).filter(Boolean);
+
+  const byPts = rows.slice().sort((a, b) => b.pts - a.pts);
+  const now = tableAt(S, g), before = S.gws.includes(g - 1) ? tableAt(S, g - 1) : null;
+  /* FPL's own league positions (it splits ties) when the fetch has them for this gameweek; otherwise shared ranks from totals. */
+  const fplRanks = S.b.standings_gw === g && S.M.every((m) => m.rank && m.lastRank);
+  const moves = fplRanks
+    ? S.M.map((m) => ({ m, rank: m.rank, prev: m.lastRank, change: m.lastRank - m.rank }))
+    : before ? now.map((r) => { const p = before.find((x) => x.m === r.m); return p ? { m: r.m, rank: r.rank, prev: p.rank, change: p.rank - r.rank } : null; }).filter(Boolean) : [];
+  const climb = moves.filter((x) => x.change > 0).sort((a, b) => b.change - a.change)[0] || null;
+  const fall = moves.filter((x) => x.change < 0).sort((a, b) => a.change - b.change)[0] || null;
+
+  const regular = rows.filter((r) => !SQUAD_CHIPS.has(r.chip));
+  const tx = regular.flatMap((r) => r.transfers.map((t) => ({ ...t, m: r.m })));
+  const bestTx = tx.length ? tx.slice().sort((a, b) => b.net - a.net)[0] : null;
+  const worstTx = tx.length ? tx.slice().sort((a, b) => a.net - b.net)[0] : null;
+  const busiest = regular.filter((r) => r.tx > 1).sort((a, b) => b.tx - a.tx)[0] || null;
+
+  const capCounts = {};
+  rows.forEach((r) => { if (r.cap && r.cap.effective && r.cap.effective.mult === 2) capCounts[r.cap.effective.name] = (capCounts[r.cap.effective.name] || 0) + 1; });
+  const bestCap = rows.filter((r) => r.cap && r.cap.effective).sort((a, b) => b.cap.effective.delivered - a.cap.effective.delivered)[0] || null;
+
+  const owners = new Map();
+  S.M.forEach((m) => { if (!m.picks) return; m.picks.picks.filter((p) => p[2] > 0).forEach((p) => { if (!owners.has(p[0])) owners.set(p[0], []); owners.get(p[0]).push(m); }); });
+  const differentials = [...owners.entries()].filter(([el, who]) => who.length === 1 && livePts(S, el) >= 6)
+    .map(([el, who]) => ({ player: pname(S, el), team: teamShort(S, (S.P.get(el) || {}).team), pts: livePts(S, el), m: who[0] }))
+    .sort((a, b) => b.pts - a.pts).slice(0, 5);
+
+  const benchKing = rows.slice().sort((a, b) => b.bench - a.bench)[0];
+  const e = S.ev.get(g) || {};
+  return {
+    gw: g, final: !!e.checked, rows, byPts, moves, climb, fall, bestTx, worstTx, busiest,
+    hits: rows.filter((r) => r.hit > 0), capCounts, bestCap,
+    armMoved: rows.filter((r) => r.cap && r.cap.moved),
+    chips: rows.filter((r) => r.chip), differentials, benchKing,
+    leagueAvg: r1(mean(rows.map((r) => r.pts))), globalAvg: e.avg ?? null, globalHigh: e.high ?? null,
+    table: now,
+  };
+}
+
+/* ------------------------------------------------------------ transfers */
+
+function nextGw(S) {
+  const n = S.b.events.find((e) => e.next);
+  return n ? n.id : S.b.squad_gw + 1;
+}
+
+function freeTransferEstimate(m) {
+  /* Banks one a week up to five; wildcard and free hit weeks don't use one. */
+  let ft = 1;
+  [...m.hist.values()].sort((a, b) => a.ev - b.ev).forEach((h) => {
+    if (h.ev < 2) return;
+    const c = chipAt(m, h.ev);
+    if (c === "wildcard" || c === "freehit") return;
+    ft = Math.min(5, Math.max(0, ft - h.tx) + 1);
+  });
+  return ft;
+}
+
+function advise(S, m, horizon, freeTransfers) {
+  const start = nextGw(S);
+  const gws = [];
+  for (let g = start; g < start + horizon && g <= 38; g++) gws.push(g);
+  if (!gws.length || !m.squad) return null;
+
+  const run = new Map([...S.teams.keys()].map((t) => [t, { mult: 0, n: 0, list: [] }]));
+  S.b.fixtures.filter((f) => gws.includes(f[0])).sort((a, b) => a[0] - b[0]).forEach(([g, h, a, hd, ad]) => {
+    const H = run.get(h), A = run.get(a);
+    if (H) { H.mult += DIFF_MULT[hd] + 0.05; H.n++; H.list.push(`${teamShort(S, a)} (H)`); H.d = (H.d || []).concat(hd); }
+    if (A) { A.mult += DIFF_MULT[ad]; A.n++; A.list.push(`${teamShort(S, h)} (A)`); A.d = (A.d || []).concat(ad); }
+  });
+  const played = Math.max(1, S.b.events.filter((e) => e.finished && e.id <= S.b.squad_gw).length);
+  const avail = (p) => (p.chance != null ? p.chance / 100 : ({ a: 1, d: 0.5 })[p.status] ?? 0);
+  const proj = (p) => {
+    const base = (p.form + p.ppg) / 2;
+    const mins = Math.min(1, p.mins / (played * 90));
+    const r = run.get(p.team) || { mult: 0, n: 0 };
+    const share = r.n ? 1 / r.n : 0;
+    return r1(base * mins * r.mult * (1 - share + share * avail(p)));
+  };
+  const card = (p) => ({ ...p, posName: POS[p.pos], club: teamShort(S, p.team), proj: proj(p), avail: avail(p), fixtures: (run.get(p.team) || { list: [] }).list.join(", ") });
+
+  const squad = m.squad.picks.map((x) => card(S.P.get(x[0]))).filter((x) => x.id);
+  const bank = (m.squad.bank || 0) / 10;
+  const bestXI = (sq) => {
+    const by = (pos) => sq.filter((x) => x.pos === pos).map((x) => x.proj).sort((a, b) => b - a);
+    const gk = by(1), d = by(2), mi = by(3), f = by(4);
+    const core = (gk[0] || 0) + sum(d.slice(0, 3)) + sum(mi.slice(0, 2)) + (f[0] || 0);
+    const rest = d.slice(3, 5).concat(mi.slice(2, 5), f.slice(1, 3)).sort((a, b) => b - a);
+    return core + sum(rest.slice(0, 4));
+  };
+  const base = bestXI(squad);
+  const inSquad = new Set(squad.map((x) => x.id));
+  const clubs = {};
+  squad.forEach((x) => { clubs[x.team] = (clubs[x.team] || 0) + 1; });
+  const pool = [...S.P.values()].filter((p) => !inSquad.has(p.id) && avail(p) >= 0.75 && p.mins > 0).map(card).sort((a, b) => b.proj - a.proj);
+  const clubOk = (cc, ins) => { const c = { ...cc }; for (const i of ins) { c[i.team] = (c[i.team] || 0) + 1; if (c[i.team] > 3) return false; } return true; };
+
+  const singles = [];
+  squad.forEach((out) => {
+    const cc = { ...clubs }; cc[out.team]--;
+    const budget = bank + out.cost + 1e-9;
+    let best = null;
+    pool.filter((i) => i.pos === out.pos && i.cost <= budget).slice(0, 30).forEach((c) => {
+      if (!clubOk(cc, [c])) return;
+      const gain = bestXI(squad.filter((x) => x.id !== out.id).concat(c)) - base;
+      if (!best || gain > best.gain) best = { c, gain };
+    });
+    if (best && best.gain > 0.5) singles.push({ out, in: best.c, gain: r1(best.gain), left: r1(budget - best.c.cost) });
+  });
+  singles.sort((a, b) => b.gain - a.gain);
+
+  let pair = null;
+  const outs = singles.slice(0, 6).map((s) => s.out);
+  for (let i = 0; i < outs.length; i++) for (let j = i + 1; j < outs.length; j++) {
+    const o1 = outs[i], o2 = outs[j];
+    const cc = { ...clubs }; cc[o1.team]--; cc[o2.team]--;
+    const money = bank + o1.cost + o2.cost + 1e-9;
+    const kept = squad.filter((x) => x.id !== o1.id && x.id !== o2.id);
+    const A = pool.filter((p) => p.pos === o1.pos).slice(0, 15), Bp = pool.filter((p) => p.pos === o2.pos).slice(0, 15);
+    for (const a of A) for (const b of Bp) {
+      if (a.id === b.id || a.cost + b.cost > money || !clubOk(cc, [a, b])) continue;
+      const gain = bestXI(kept.concat(a, b)) - base;
+      if (!pair || gain > pair.gain) pair = { out: [o1, o2], in: [a, b], gain: r1(gain) };
+    }
+  }
+
+  const ft = freeTransfers;
+  const extra = pair && singles.length ? r1(pair.gain - singles[0].gain) : null;
+  let plan;
+  if (!singles.length || singles[0].gain < 2) plan = { kind: "hold", text: "No move adds two projected points. Rolling the transfer is a reasonable call." };
+  else if (ft >= 2 && pair && extra > 0) plan = { kind: "pair", text: `${ft} free transfers: make both moves. Together they add ${pair.gain} projected points.` };
+  else if (ft === 0) plan = { kind: "hit", text: `No free transfers. The best move adds ${singles[0].gain} projected points, so a 4-point hit only pays if you trust that over ${gws.length} gameweeks.` };
+  else if (pair && extra >= 8) plan = { kind: "hit", text: `The second move adds ${extra} more projected points, above the 8 needed to justify a 4-point hit. A judgement call.` };
+  else plan = { kind: "single", text: pair ? `Make the top move. A second one would add ${extra} more projected points, not enough to justify a 4-point hit.` : "Make the top move." };
+
+  const runs = [...run.entries()].filter(([, r]) => r.n).map(([t, r]) => ({ team: teamShort(S, t), score: r1(r.mult), n: r.n, fixtures: r.list.join(", ") }))
+    .sort((a, b) => b.score - a.score);
+  return {
+    m, gws, bank, ft, base: r1(base), squad: squad.sort((a, b) => a.proj - b.proj), singles: singles.slice(0, 6), pair, extra, plan,
+    easiest: runs.slice(0, 5), hardest: runs.slice(-5).reverse(),
+    flags: squad.filter((x) => x.news || x.avail < 1),
+  };
+}
+
+/* ------------------------------------------------------------ payloads for write-ups */
+
+function payloadWeekly(S) {
+  const w = gameweek(S);
+  const lead = w.table[0];
+  return {
+    league: S.b.league.name, gameweek: w.gw, final: w.final,
+    global_average: w.globalAvg, global_highest: w.globalHigh, league_average_before_hits: w.leagueAvg,
+    league_minus_global: w.globalAvg != null ? r1(w.leagueAvg - w.globalAvg) : null,
+    table_after_gameweek: w.table.map((r, i) => ({
+      rank: r.rank, manager: r.m.name, team: r.m.team, total_after_hits: r.total,
+      behind_leader: lead.total - r.total, behind_place_above: i ? w.table[i - 1].total - r.total : 0,
+    })),
+    scores_this_week: w.byPts.map((r) => ({ manager: r.m.name, points_before_hits: r.pts, hit: r.hit, points_after_hits: r.net, vs_global: w.globalAvg != null ? r.pts - w.globalAvg : null, chip: r.chipLabel, transfers: r.tx, bench_points: r.bench })),
+    movers: { biggest_climber: w.climb && { manager: w.climb.m.name, from: w.climb.prev, to: w.climb.rank, places: w.climb.change },
+      biggest_faller: w.fall && { manager: w.fall.m.name, from: w.fall.prev, to: w.fall.rank, places: -w.fall.change } },
+    captaincy: {
+      most_common: Object.entries(w.capCounts).sort((a, b) => b[1] - a[1])[0] || null,
+      best: w.bestCap && { manager: w.bestCap.m.name, player: w.bestCap.cap.effective.name, points_delivered: w.bestCap.cap.effective.delivered },
+      armband_moved_to_vice: w.armMoved.map((r) => ({ manager: r.m.name, captain: r.cap.nominal.name, vice: r.cap.effective.name, vice_delivered: r.cap.effective.delivered })),
+    },
+    transfers: {
+      note: "Wildcard and Free Hit managers are excluded from best and worst transfer.",
+      best: w.bestTx && { manager: w.bestTx.m.name, in: w.bestTx.in, in_points: w.bestTx.inPts, out: w.bestTx.out, out_points: w.bestTx.outPts, net: w.bestTx.net },
+      worst: w.worstTx && { manager: w.worstTx.m.name, in: w.worstTx.in, in_points: w.worstTx.inPts, out: w.worstTx.out, out_points: w.worstTx.outPts, net: w.worstTx.net },
+      busiest: w.busiest && { manager: w.busiest.m.name, transfers: w.busiest.tx, hit: w.busiest.hit },
+    },
+    biggest_bench: w.benchKing && { manager: w.benchKing.m.name, bench_points: w.benchKing.bench, top_benched_player: w.benchKing.topBench },
+    chips: w.chips.map((r) => ({ manager: r.m.name, chip: r.chipLabel, extra_points_from_chip: r.chipGain })),
+    differentials: w.differentials.map((d) => ({ player: d.player, club: d.team, points: d.pts, only_owner: d.m.name })),
+  };
+}
+
+function payloadTrend(S, a, b) {
+  const st = S.M.map((m) => spanStats(S, m, a, b)).filter(Boolean);
+  const startG = S.gws.includes(a - 1) ? a - 1 : a;
+  return {
+    league: S.b.league.name, from_gameweek: a, to_gameweek: b,
+    definitions: {
+      total_in_span: "points after hits scored inside the span only",
+      season_total: "official FPL total after hits",
+      consistency_sd: "sample standard deviation of weekly scores after hits; lower is steadier",
+      weeks_beat_global: "weeks where the score before hits beat the FPL global average",
+    },
+    global_average_by_gameweek: Object.fromEntries(S.gws.filter((g) => g >= a && g <= b).map((g) => [g, avgOf(S, g)])),
+    league_average_by_gameweek: Object.fromEntries(S.gws.filter((g) => g >= a && g <= b).map((g) => [g, leagueAvg(S, g)])),
+    managers: st.map((s) => ({
+      manager: s.m.name, rank_after_span: rankOf(S, s.m, b), rank_before_span: rankOf(S, s.m, startG),
+      season_total: s.m.hist.get(b) ? s.m.hist.get(b).total : null,
+      total_in_span: s.total, mean: s.mean, consistency_sd: s.sd, gameweeks_played: s.played,
+      best_week: s.best, worst_week: s.worst, weeks_beat_global: s.beatG, points_vs_global_total: s.vsG,
+      bench_points: s.bench, hit_points: s.hits, transfers: s.tx, chips: s.chips,
+    })).sort((x, y) => x.rank_after_span - y.rank_after_span),
+    computed_insights: insights(S, a, b).map((i) => ({ headline: i.head, number: i.stat, detail: i.body })),
+  };
+}
+
+function payloadAdvice(S, A) {
+  return {
+    manager: A.m.name, team: A.m.team, gameweeks: A.gws, bank: A.bank, free_transfers: A.ft,
+    method: "Per-match value = average of form and season points per game, scaled by share of minutes played, multiplied across fixtures by difficulty (1.25 easiest to 0.75 hardest, +0.05 at home); first gameweek scaled by chance of playing. Gain = improvement to the best possible starting eleven over the window.",
+    plan: A.plan.text,
+    best_moves: A.singles.map((s) => ({ out: s.out.name, out_club: s.out.club, out_price: s.out.cost, out_form: s.out.form, out_news: s.out.news,
+      in: s.in.name, in_club: s.in.club, in_price: s.in.cost, in_form: s.in.form, in_minutes: s.in.mins, in_fixtures: s.in.fixtures, money_left: s.left, projected_gain: s.gain })),
+    best_pair: A.pair && { out: A.pair.out.map((x) => x.name), in: A.pair.in.map((x) => `${x.name} (${x.club}, £${x.cost}m)`), projected_gain: A.pair.gain, extra_over_single: A.extra },
+    flags: A.flags.map((x) => ({ player: x.name, club: x.club, news: x.news, chance_of_playing: Math.round(x.avail * 100) })),
+    easiest_fixture_runs: A.easiest, hardest_fixture_runs: A.hardest,
+    limits: "Squad is as of the last deadline. Prices are current prices: the real selling price can be lower if a player rose after purchase.",
+  };
+}
+
+/* ------------------------------------------------------------ insights: teams, positions, players */
+
+/* Season performance from FPL's own player and match data, set against what this league owns. */
+function playerInsights(S) {
+  const stats = new Map((S.b.stats || []).map((r) => [r[0], { goals: r[1], assists: r[2], cs: r[3], gc: r[4], bonus: r[5], xg: r[6], xa: r[7], xgi: r[8], starts: r[9], saves: r[10], bps: r[11], dc: r[12] }]));
+  if (!stats.size) return null;
+  const N = S.M.length;
+  /* league ownership: players in each manager's latest squad */
+  const own = {};
+  S.M.forEach((m) => { const sq = m.squad || m.picks; if (sq) sq.picks.forEach((p) => { own[p[0]] = (own[p[0]] || 0) + 1; }); });
+
+  const players = [...S.P.values()].filter((p) => stats.has(p.id) && p.mins > 0).map((p) => {
+    const s = stats.get(p.id);
+    return {
+      id: p.id, name: p.name, club: teamShort(S, p.team), teamId: p.team, pos: POS[p.pos], posN: p.pos, cost: p.cost, pts: p.total, form: p.form, mins: p.mins,
+      ppm: r1(p.total / p.cost), per90: p.mins >= 90 ? r1(p.total / p.mins * 90) : null,
+      goals: s.goals, assists: s.assists, ga: s.goals + s.assists, xgi: r1(s.xgi), gaVsXgi: r1(s.goals + s.assists - s.xgi), xg: r1(s.xg), goalsVsXg: r1(s.goals - s.xg),
+      cs: s.cs, bonus: s.bonus, starts: s.starts, dc: s.dc, saves: s.saves,
+      leagueOwn: own[p.id] || 0, leagueOwnPct: Math.round((own[p.id] || 0) / N * 100), globalOwn: p.own, news: p.news,
+    };
+  });
+
+  /* teams from match results */
+  const teams = new Map([...S.teams.entries()].map(([id, t]) => [id, { id, club: t.short, name: t.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, cs: 0, pts: 0, fplPts: 0, form: [] }]));
+  (S.b.results || []).slice().sort((a, b) => a[0] - b[0]).forEach(([ev, h, a, hs, as]) => {
+    if (hs == null || as == null) return;
+    const H = teams.get(h), A = teams.get(a); if (!H || !A) return;
+    H.p++; A.p++; H.gf += hs; H.ga += as; A.gf += as; A.ga += hs;
+    if (as === 0) H.cs++; if (hs === 0) A.cs++;
+    const rH = hs > as ? "W" : hs < as ? "L" : "D", rA = hs > as ? "L" : hs < as ? "W" : "D";
+    H[rH.toLowerCase()]++; A[rA.toLowerCase()]++; H.form.push(rH); A.form.push(rA);
+    H.pts += rH === "W" ? 3 : rH === "D" ? 1 : 0; A.pts += rA === "W" ? 3 : rA === "D" ? 1 : 0;
+  });
+  players.forEach((p) => { const t = teams.get(p.teamId); if (t) t.fplPts += p.pts; });
+  const nextGws = [nextGw(S), nextGw(S) + 1, nextGw(S) + 2];
+  const teamRows = [...teams.values()].map((t) => {
+    const top = players.filter((p) => p.teamId === t.id).sort((a, b) => b.pts - a.pts)[0];
+    const fx = S.b.fixtures.filter((f) => nextGws.includes(f[0]) && (f[1] === t.id || f[2] === t.id)).sort((a, b) => a[0] - b[0])
+      .map((f) => (f[1] === t.id ? { opp: teamShort(S, f[2]), venue: "H", diff: f[3] } : { opp: teamShort(S, f[1]), venue: "A", diff: f[4] }));
+    return { ...t, gd: t.gf - t.ga, form: t.form.slice(-5).join(""), top: top ? { name: top.name, pts: top.pts } : null, leagueOwn: sum(players.filter((p) => p.teamId === t.id).map((p) => p.leagueOwn)), next: fx };
+  }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+
+  /* positions: where the points come from, overall and in this league's squads */
+  const posRows = [1, 2, 3, 4].map((k) => {
+    const ps = players.filter((p) => p.posN === k);
+    const regulars = ps.filter((p) => p.mins >= 90 * Math.max(1, S.gw) * 0.5);
+    const top5 = ps.slice().sort((a, b) => b.pts - a.pts).slice(0, 5);
+    const ownedPts = sum(ps.map((p) => p.pts * p.leagueOwn));
+    return {
+      pos: POS[k], players: ps.length, regulars: regulars.length,
+      avgPts: regulars.length ? r1(mean(regulars.map((p) => p.pts))) : null,
+      avgPpm: regulars.length ? r1(mean(regulars.map((p) => p.ppm))) : null,
+      top5Pts: sum(top5.map((p) => p.pts)), best: top5[0] ? { name: top5[0].name, club: top5[0].club, pts: top5[0].pts } : null,
+      bestValue: regulars.slice().sort((a, b) => b.ppm - a.ppm)[0] || null,
+      ownedPts,
+    };
+  });
+  const totalOwned = sum(posRows.map((r) => r.ownedPts)) || 1;
+  posRows.forEach((r) => (r.ownedShare = Math.round(r.ownedPts / totalOwned * 100)));
+
+  /* the league against reality */
+  const byPts = players.slice().sort((a, b) => b.pts - a.pts);
+  const missing = byPts.slice(0, 40).filter((p) => p.leagueOwnPct < 15).slice(0, 6);
+  const leagueFavs = players.filter((p) => p.leagueOwnPct >= 25).sort((a, b) => a.ppm - b.ppm).slice(0, 6);
+  return { players, teams: teamRows, positions: posRows, missing, leagueFavs, managers: N };
+}
+
+/* ------------------------------------------------------------ newsletter */
+
+/* Every figure in the newsletter, in one place. The written columns are
+   produced from this and nothing else. */
+function payloadNewsletter(S) {
+  const g = S.gw, w = gameweek(S), N = S.M.length;
+  const club = (el) => teamShort(S, (S.P.get(el) || {}).team);
+  const stat = (el) => { const v = (S.b.live || {})[String(el)] || [0, 0, 0, 0, 0, 0]; return { pts: v[0], mins: v[1], goals: v[2] || 0, assists: v[3] || 0, bonus: v[4] || 0 }; };
+  const label = (m) => ({ team: m.team, manager: m.name });
+  const pct = (n) => `${(Math.round(n / N * 10000) / 100).toFixed(2)}% (${n}/${N})`;
+  /* The newsletter's average and median are after hits, as in the hand-made issues. */
+  const scores = w.rows.map((r) => r.net).sort((a, b) => a - b);
+  const median = scores.length % 2 ? scores[(scores.length - 1) / 2] : (scores[scores.length / 2 - 1] + scores[scores.length / 2]) / 2;
+
+  /* movement */
+  const moves = w.moves.map((x) => { const r = w.rows.find((y) => y.m === x.m); return { ...label(x.m), from: x.prev, to: x.rank, change: x.change, points: r ? r.pts : null, captain: r && r.cap && r.cap.effective ? r.cap.effective.name : null, chip: r ? r.chipLabel : null, transfers: r ? r.tx : null }; });
+  const risers = moves.filter((x) => x.change > 0).sort((a, b) => b.change - a.change || b.points - a.points).slice(0, 3);
+  const fallers = moves.filter((x) => x.change < 0).sort((a, b) => a.change - b.change || a.points - b.points).slice(0, 3);
+
+  /* transfers: net points of all of a manager's moves this week. Wildcard and Free Hit weeks are left out. */
+  const txNet = w.rows.filter((r) => !SQUAD_CHIPS.has(r.chip) && r.transfers.length)
+    .map((r) => ({ ...label(r.m), moves: r.transfers.length, net: sum(r.transfers.map((t) => t.net)), hit: r.hit, detail: r.transfers.map((t) => `${t.out} (${t.outPts}) out, ${t.in} (${t.inPts}) in`) }));
+  const bestTx = txNet.slice().sort((a, b) => b.net - a.net)[0] || null;
+  const worstTx = txNet.slice().sort((a, b) => a.net - b.net)[0] || null;
+
+  /* league transfers in and out this week, all managers */
+  const tIn = {}, tOut = {};
+  /* Wildcard and Free Hit squads are left out: they are rebuilds, not transfer decisions. */
+  w.rows.filter((r) => !SQUAD_CHIPS.has(r.chip)).forEach((r) => r.m.transfers.filter((t) => t[2] === g).forEach((t) => { tIn[t[0]] = (tIn[t[0]] || 0) + 1; tOut[t[1]] = (tOut[t[1]] || 0) + 1; }));
+  const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1] || pname(S, +a[0]).localeCompare(pname(S, +b[0]))).slice(0, n).map(([el, c]) => ({ player: pname(S, +el), club: club(+el), count: c }));
+
+  /* ownership: in the 15-man squad for this gameweek */
+  const own = {}, capN = {};
+  S.M.forEach((m) => { if (!m.picks) return; m.picks.picks.forEach((p) => { own[p[0]] = (own[p[0]] || 0) + 1; if (p[3]) capN[p[0]] = (capN[p[0]] || 0) + 1; }); });
+  const ownership = Object.entries(own).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([el, c]) => ({ player: pname(S, +el), club: club(+el), owners: c, share: pct(c) }));
+  const capTop = Object.entries(capN).sort((a, b) => b[1] - a[1])[0];
+
+  /* season captaincy: the points the armband actually delivered, triple captain included */
+  const capSeason = S.M.map((m) => ({ ...label(m), points: sum((m.captains || []).filter((c) => c[0] <= g).map((c) => c[3])), weeks: (m.captains || []).filter((c) => c[0] <= g).length }))
+    .filter((x) => x.weeks > 0);
+  const capBest = capSeason.slice().sort((a, b) => b.points - a.points)[0] || null;
+  const capWorst = capSeason.slice().sort((a, b) => a.points - b.points)[0] || null;
+
+  /* season transfers and squad value */
+  const seasonTx = S.M.map((m) => ({ ...label(m), transfers: sum([...m.hist.values()].filter((h) => h.ev <= g).map((h) => h.tx)) })).sort((a, b) => b.transfers - a.transfers)[0];
+  const value = S.M.map((m) => { const h = m.hist.get(g); return h ? { ...label(m), value: h.value / 10 } : null; }).filter(Boolean).sort((a, b) => b.value - a.value)[0];
+
+  /* chips by type */
+  const chipGroups = {};
+  w.rows.filter((r) => r.chip).forEach((r) => {
+    const k = r.chipLabel;
+    (chipGroups[k] = chipGroups[k] || []).push({ ...label(r.m), points: r.pts, extra: r.chipGain, on: r.chip === "3xc" && r.cap && r.cap.effective ? r.cap.effective.name : null });
+  });
+  const chips = Object.entries(chipGroups).map(([chip, list]) => {
+    const s = list.slice().sort((a, b) => b.points - a.points);
+    const ons = {}; list.forEach((x) => x.on && (ons[x.on] = (ons[x.on] || 0) + 1));
+    return { chip, managers: list.length, best: s[0], worst: s.length > 1 ? s[s.length - 1] : null, triple_captain_on: Object.keys(ons).length ? ons : null,
+      note: chip === "Wildcard" ? "extra = points against what the old team would have scored" : chip === "Triple Captain" ? "extra = the third helping of the captain's points" : chip === "Bench Boost" ? "extra = points from the bench" : null };
+  });
+
+  /* players: facts for the Players Column */
+  const fixtureOf = (el) => {
+    const t = (S.P.get(el) || {}).team;
+    const f = (S.b.gw_fixtures || []).filter((x) => x[0] === t || x[1] === t);
+    return f.map((x) => x[0] === t ? `${teamShort(S, x[1])} (H) ${x[2] ?? "?"}-${x[3] ?? "?"}` : `${teamShort(S, x[0])} (A) ${x[3] ?? "?"}-${x[2] ?? "?"}`).join(", ");
+  };
+  const player = (el) => el && { player: pname(S, +el), club: club(+el), ...stat(+el), fixture: fixtureOf(+el), league_owners: own[el] || 0, league_captains: capN[el] || 0 };
+  const owned = Object.keys(own).map(Number).sort((a, b) => stat(b).pts - stat(a).pts);
+  const tcRows = w.rows.filter((r) => r.chip === "3xc" && r.cap && r.cap.effective);
+  const capRows = w.rows.filter((r) => r.cap && r.cap.effective && r.cap.effective.mult === 2);
+  const globalFav = [...S.P.values()].filter((p) => p.raw && p.raw[13] != null).sort((a, b) => b.raw[13] - a.raw[13])[0];
+  const leagueFav = Object.entries(tIn).sort((a, b) => b[1] - a[1])[0];
+
+  const T = w.table;
+  return {
+    league: S.b.league.name, gameweek: g, final: w.final, managers: N,
+    intro: { average_after_hits: r1(mean(scores)), median, managers_90_plus: scores.filter((x) => x >= 90).length, top_scorer: w.byPts[0] && { ...label(w.byPts[0].m), points: w.byPts[0].pts, hit: w.byPts[0].hit },
+      global_average: w.globalAvg, league_average_before_hits: w.leagueAvg, league_minus_global_before_hits: w.globalAvg != null ? r1(w.leagueAvg - w.globalAvg) : null },
+    table_top3: T.slice(0, 3).map((r, i) => ({ rank: r.rank, ...label(r.m), total: r.total, week_points: r.pts, behind_leader: T[0].total - r.total, moved: (moves.find((x) => x.manager === r.m.name) || {}).change ?? 0 })),
+    manager_of_the_week: w.byPts[0] && { ...label(w.byPts[0].m), points: w.byPts[0].pts, transfers: w.byPts[0].tx, hit: w.byPts[0].hit, chip: w.byPts[0].chipLabel, places_moved: (moves.find((x) => x.manager === w.byPts[0].m.name) || {}).change ?? 0 },
+    biggest_risers: risers, biggest_fallers: fallers,
+    chips,
+    highlights: {
+      manager_of_the_week: w.byPts[0] && { ...label(w.byPts[0].m), value: `${w.byPts[0].pts} pts` },
+      biggest_rise: risers[0] && { team: risers[0].team, manager: risers[0].manager, value: `+${risers[0].change}` },
+      biggest_fall: fallers[0] && { team: fallers[0].team, manager: fallers[0].manager, value: `${fallers[0].change}` },
+      best_transfers_this_week: bestTx && bestTx.net > 0 && { team: bestTx.team, manager: bestTx.manager, value: `${bestTx.net} net pts` },
+      worst_transfers_this_week: worstTx && worstTx.net < 0 && { team: worstTx.team, manager: worstTx.manager, value: `${worstTx.net} net pts` },
+      most_points_on_bench_this_week: w.benchKing && w.benchKing.bench > 0 && { ...label(w.benchKing.m), value: `${w.benchKing.bench} pts` },
+      most_transfers_this_season: seasonTx && { team: seasonTx.team, manager: seasonTx.manager, value: `${seasonTx.transfers} transfers` },
+      best_team_value: value && { team: value.team, manager: value.manager, value: `£${value.value.toFixed(1)}M` },
+      best_captain_picker: capBest && { team: capBest.team, manager: capBest.manager, value: `${capBest.points} pts` },
+      worst_captain_picker: capWorst && { team: capWorst.team, manager: capWorst.manager, value: `${capWorst.points} pts` },
+    },
+    transfer_detail: { best: bestTx, worst: worstTx },
+    player_highlights: {
+      most_captained: capTop && { player: pname(S, +capTop[0]), value: `${Math.round(capTop[1] / N * 100)}% (${capTop[1]}/${N})` },
+      most_owned: ownership[0] && { player: ownership[0].player, value: ownership[0].share },
+      most_transferred_in: leagueFav && { player: top(tIn, 10).filter((x) => x.count === leagueFav[1]).map((x) => x.player).join(", "), value: `${leagueFav[1]}${top(tIn, 10).filter((x) => x.count === leagueFav[1]).length > 1 ? " each" : ""}` },
+      most_transferred_out: Object.keys(tOut).length && { player: top(tOut, 1)[0].player, value: `${top(tOut, 1)[0].count} out` },
+    },
+    transfers_in_top5: top(tIn, 5), transfers_out_top5: top(tOut, 5), ownership_top10: ownership,
+    players: {
+      most_captained: capTop && { ...player(capTop[0]), captained_by: capTop[1], triple_captained_by: tcRows.filter((r) => r.cap.effective.name === pname(S, +capTop[0])).length,
+        points_per_captain: stat(+capTop[0]).pts * 2, points_per_triple_captain: stat(+capTop[0]).pts * 3 },
+      top_scorers_owned_in_league: owned.slice(0, 5).map(player),
+      league_most_bought: leagueFav && { ...player(leagueFav[0]), bought_by: leagueFav[1] },
+      /* FPL only gives global transfer counts for the open transfer window, not a finished gameweek, so there is no global most-bought figure. */
+      differentials: w.differentials.map((d) => ({ player: d.player, club: d.team, points: d.pts, only_starter: d.m.name })),
+      captains_used: capRows.length,
+    },
+  };
+}
+
+/* ------------------------------------------------------------ number check */
+
+/* Every number in the write-up should appear somewhere in the data it was
+   given. Returns the ones that don't, for a human to look at. */
+function numberCheck(text, payload) {
+  const known = new Set();
+  const add = (x) => { const n = Number(x); if (Number.isFinite(n)) { known.add(n); known.add(Math.abs(n)); known.add(r1(n)); known.add(Math.round(n)); } };
+  const walk = (v) => {
+    if (v == null) return;
+    if (typeof v === "number") add(v);
+    else if (typeof v === "string") (v.match(/-?\d+(?:\.\d+)?/g) || []).forEach(add);
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (typeof v === "object") Object.values(v).forEach(walk);
+  };
+  walk(payload);
+  for (let i = 0; i <= 4; i++) known.add(i); /* small counts ("two managers") are safe */
+  const found = (text.match(/(?<![\w.£])-?\d+(?:\.\d+)?/g) || []).map(Number);
+  const bad = [...new Set(found.filter((n) => !known.has(n) && !known.has(Math.abs(n))))];
+  return { checked: found.length, unmatched: bad };
+}
+
+/* ------------------------------------------------------------ demo league */
+
+function mulberry(seed) {
+  return function () { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+function demoBundle() {
+  const R = mulberry(20261028);
+  const ri = (a, b) => a + Math.floor(R() * (b - a + 1));
+  const pick = (arr) => arr[Math.floor(R() * arr.length)];
+  const norm = (m, s) => { let u = 0, v = 0; while (!u) u = R(); while (!v) v = R(); return m + s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+  const clubs = [["ASH", "Ashford Rovers"], ["BRK", "Brookmere"], ["CAL", "Caldwell Town"], ["DUN", "Dunmore"], ["ELM", "Elmbridge"], ["FEN", "Fenwick United"],
+    ["GRA", "Grantham Vale"], ["HAR", "Harrowgate"], ["IVY", "Ivybridge"], ["KES", "Kestrel Park"], ["LYN", "Lynford"], ["MAR", "Marlow Athletic"],
+    ["NOR", "Northcote"], ["OAK", "Oakhurst"], ["PEN", "Penrith Albion"], ["QUA", "Quarry Bank"], ["RAV", "Ravenscar"], ["STO", "Stonebridge"],
+    ["THO", "Thornbury"], ["WES", "Westmarch"]];
+  const teams = clubs.map((c, i) => [i + 1, c[0], c[1]]);
+  const strength = teams.map(() => R());
+  const syl = ["Ad", "Bel", "Cor", "Dal", "Ek", "Far", "Gil", "Hal", "Ish", "Jor", "Kal", "Lom", "Mar", "Nor", "Ov", "Pel", "Quin", "Ros", "Sal", "Tor", "Ul", "Var", "Wen", "Yar", "Zel"];
+  const end = ["ani", "ez", "son", "ley", "ovic", "ard", "ini", "ton", "eau", "ski", "ham", "o", "ers", "ic", "well"];
+  const used = new Set();
+  const nm = () => { let n; do n = pick(syl) + pick(end); while (used.has(n)); used.add(n); return n; };
+  const elements = [];
+  let id = 1;
+  const layout = { 1: 2, 2: 5, 3: 5, 4: 3 }, priceBase = { 1: 45, 2: 45, 3: 55, 4: 60 };
+  teams.forEach((t, ti) => {
+    for (const pos of [1, 2, 3, 4]) for (let k = 0; k < layout[pos]; k++) {
+      const q = Math.max(0, Math.min(1, strength[ti] * 0.6 + R() * 0.6 - (k > 2 ? 0.25 : 0)));
+      const cost = priceBase[pos] + Math.round(q * (pos >= 3 ? 70 : 20) / 5) * 5;
+      const starter = pos === 1 ? k === 0 : k < (pos === 4 ? 2 : 4);
+      const mins = starter ? ri(600, 810) : ri(0, 260);
+      const ppg = Math.max(0, r1(1.5 + q * (pos >= 3 ? 5 : 3) + norm(0, 0.6)));
+      const status = R() < 0.05 ? (R() < 0.5 ? "d" : "i") : "a";
+      elements.push([id++, nm(), t[0], pos, cost, Math.max(0, r1(ppg + norm(0, 1.4))), ppg, mins, status,
+        status === "a" ? null : status === "d" ? 75 : 0, status === "d" ? "Knock - 75% chance of playing" : status === "i" ? "Hamstring injury - unknown return date" : "",
+        r1(Math.max(0.1, q * q * 45 + R() * 3)), Math.round(ppg * mins / 90)]);
+    }
+  });
+  const gw = 9;
+  const events = [];
+  for (let g = 1; g <= 38; g++) events.push({ id: g, avg: g <= gw ? Math.round(norm(52, 7)) : null, high: g <= gw ? ri(110, 145) : null, finished: g <= gw, checked: g <= gw, current: g === gw, next: g === gw + 1, deadline: null });
+  const fixtures = [];
+  for (let g = gw + 1; g <= gw + 8; g++) {
+    const order = teams.map((t) => t[0]).sort(() => R() - 0.5);
+    for (let i = 0; i < 20; i += 2) {
+      const h = order[i], a = order[i + 1];
+      const diff = (x) => Math.max(1, Math.min(5, Math.round(1 + strength[x - 1] * 4)));
+      fixtures.push([g, h, a, diff(a), diff(h)]);
+    }
+  }
+  const live = {};
+  elements.forEach((e) => { const starter = e[7] > 400; const mins = starter ? (R() < 0.85 ? 90 : ri(20, 70)) : (R() < 0.3 ? ri(5, 30) : 0); const pts = mins ? Math.max(1, Math.round(norm(e[6], 2.6))) : 0; if (mins || pts) live[e[0]] = [pts, mins]; });
+  const lp = (el) => (live[el] || [0])[0];
+  const names = ["Priya Nair", "Tom Okafor", "Hannah Reid", "Marcus Chen", "Ellie Fraser", "Sam Patel", "Jonny Burke", "Aisha Mensah", "Callum Grant", "Leah Murray", "Dev Sharma", "Rory McLeod"];
+  const tnames = ["Nair Necessities", "Okafor Granted", "Reid Alert", "Chen Reaction", "Fraser Rangers", "Patel Power", "Burke Lane FC", "Mensah Sana", "Grant Thy Wish", "Murray Christmas", "Sharma Chameleon", "McLeod of Hope"];
+  const byPos = (p) => elements.filter((e) => e[3] === p);
+  const managers = names.map((n, mi) => {
+    const skill = norm(0, 4);
+    const squad = [], clubs = {};
+    for (const [p, c] of [[1, 2], [2, 5], [3, 5], [4, 3]]) {
+      const pool = byPos(p).sort(() => R() - 0.5).sort((a, b) => b[12] - a[12] + norm(0, 25));
+      for (const e of pool) { if (squad.filter((x) => x[3] === p).length >= c) break; if ((clubs[e[2]] || 0) >= 3) continue; clubs[e[2]] = (clubs[e[2]] || 0) + 1; squad.push(e); }
+    }
+    const xi = [squad[0], ...squad.slice(2, 6), ...squad.slice(7, 11), ...squad.slice(12, 14)];
+    const bench = [squad[1], squad[6], squad[11], squad[14]];
+    const order = [...xi, ...bench];
+    const capIdx = 5 + ri(0, 3);
+    const chips = [];
+    if (R() < 0.4) chips.push(["wildcard", ri(4, 8)]);
+    if (mi === 3) chips.push(["3xc", gw]);
+    if (mi === 7) chips.push(["bboost", gw]);
+    const history = [];
+    let total = 0, orank = ri(800000, 4500000);
+    for (let g = 1; g <= gw; g++) {
+      const tx = g === 1 ? 0 : ri(0, R() < 0.2 ? 3 : 1);
+      const cost = tx > 1 && R() < 0.7 ? (tx - 1) * 4 : 0;
+      let pts = Math.max(18, Math.round(norm(events[g - 1].avg + skill, 13)));
+      const benchPts = ri(0, 14);
+      if (g === gw) {
+        pts = sum(order.slice(0, 11).map((e, i) => lp(e[0]) * (i === capIdx ? (mi === 3 ? 3 : 2) : 1)));
+        if (mi === 7) pts += sum(bench.map((e) => lp(e[0])));
+      }
+      total += pts - cost;
+      orank = Math.max(20000, Math.round(orank * Math.exp(-(pts - events[g - 1].avg) / 40)));
+      history.push([g, pts, total, orank, ri(0, 25), 1000 + g * 2, tx, cost, g === gw ? (mi === 7 ? 0 : sum(bench.map((e) => lp(e[0])))) : benchPts]);
+    }
+    const pk = { chip: mi === 3 ? "3xc" : mi === 7 ? "bboost" : null, bank: ri(0, 25), picks: order.map((e, i) => [e[0], i + 1, i < 11 ? (i === capIdx ? (mi === 3 ? 3 : 2) : 1) : (mi === 7 ? 1 : 0), i === capIdx ? 1 : 0, i === capIdx + 1 ? 1 : 0]) };
+    const transfers = [];
+    const h9 = history[gw - 1];
+    for (let k = 0; k < h9[6]; k++) { const inn = order[ri(0, 10)][0]; const out = pick(byPos(S_pos(elements, inn))).at(0); transfers.push([inn, out, gw]); }
+    return { entry: 1000 + mi, name: n, team: tnames[mi], history, chips, picks: pk, prev: pk, squad: pk, transfers };
+  });
+  return { v: 1, demo: true, fetched: "2026-10-28T09:00+00:00", league: { id: 0, name: "Example League" }, gw, squad_gw: gw, events, teams, elements, fixtures, live, managers };
+}
+function S_pos(elements, id) { const e = elements.find((x) => x[0] === id); return e ? e[3] : 1; }
+
+if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, playerInsights, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
+
+</script>
+<script>
+/* FPL League Room: page wiring. Reads everything from core.js. */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const short = (n) => n.split(" ").slice(-1)[0];
+const signed = (n) => (n > 0 ? "+" + n : n < 0 ? "−" + Math.abs(n) : "0");
+const NS = "http://www.w3.org/2000/svg";
+const el = (t, a = {}, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const txt = (p, x, y, s, a = {}) => { const t = el("text", { x, y, ...a }, p); t.textContent = s; return t; };
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+let PREF = {};
+try { PREF = JSON.parse(store.get("flr-prefs") || "{}") || {}; } catch (e) { PREF = {}; }
+const savePrefs = () => store.set("flr-prefs", JSON.stringify(PREF));
+
+let B = null, S = null, CAP = {}, UID = null;
+/* Leagues: the main one (with the report and newsletter) and any others. Each keeps its own data and its own "you". */
+let LEAGUES = [], PLAYERS = null, REPORT = null, NEWS = null;
+const leagueKey = () => String((B && B.league && B.league.id) || "demo");
+const isMain = () => !LEAGUES.length || (LEAGUES.find((l) => l.primary) || {}).id === (B && B.league.id);
+let span = { a: 1, b: 1 };
+let sortK = "rank", sortDir = 1;
+let adv = { who: null, h: PREF.h || 5, ft: null };
+let writer = { kind: "weekly", ctl: null, lastText: "" };
+
+/* ------------------------------------------------------------ data */
+
+function setBundle(b, { save } = {}) {
+  B = b; S = build(b);
+  const names = S.M.map((m) => m.name);
+  PREF.meBy = PREF.meBy || {}; PREF.favBy = PREF.favBy || {};
+  if (PREF.me && !Object.keys(PREF.meBy).length && !b.demo) PREF.meBy[leagueKey()] = PREF.me; /* older single-league setting */
+  PREF.me = PREF.meBy[leagueKey()] || ""; PREF.fav = PREF.favBy[leagueKey()] || "";
+  if (PREF.me && !names.includes(PREF.me)) PREF.me = "";
+  if (PREF.fav && !names.includes(PREF.fav)) PREF.fav = "";
+  document.body.classList.toggle("alt-league", !isMain());
+  span = { a: S.first, b: S.gw };
+  adv = { who: PREF.me || (tableAt(S, S.gw)[0] || {}).m?.name, h: PREF.h || 5, ft: null };
+  if (save) persist(b);
+  renderAll();
+}
+
+function splitBundle(b) {
+  const { elements, teams, fixtures, events, ...rest } = b;
+  return { players: { elements, teams, fixtures, events }, league: rest };
+}
+
+async function persist(b) {
+  const local = store.set("flr-bundle", JSON.stringify(b));
+  let remote = false, tooBig = false;
+  if (CAP.db && UID) {
+    const { players, league } = splitBundle(b);
+    const pj = JSON.stringify(players), lj = JSON.stringify(league);
+    if (pj.length < 240000 && lj.length < 240000) {
+      try {
+        await CAP.db.doc(`data/users/${UID}/players`).set({ fetched: b.fetched, json: pj });
+        await CAP.db.doc(`data/users/${UID}/league`).set({ fetched: b.fetched, json: lj });
+        remote = true;
+      } catch (e) { remote = false; }
+    } else tooBig = true;
+  }
+  const where = remote ? "Saved to your account, so it opens on your other devices too."
+    : tooBig ? "Saved in this browser only: the league is too big to save to your account."
+    : local ? "Saved in this browser only." : "Not saved: this browser blocks storage, so load it again next time.";
+  return where;
+}
+
+async function initCaps() {
+  const c = window.claude;
+  if (!c || typeof c.use !== "function") { writerOff("Write-ups need the page to be open in Claude."); return; }
+  const get = (n) => c.use(n).catch(() => null);
+  const [db, user, sample, downloads] = await Promise.all([get("db"), get("user"), get("sample"), get("downloads")]);
+  CAP = { db, user, sample, downloads };
+  if (downloads) $("#dl-script").hidden = false;
+  if (!sample) writerOff("Write-ups aren't available in this view.");
+  if (db && user) {
+    try {
+      UID = await user.id();
+      if (UID) {
+        const [l, p, idx] = await Promise.all([db.doc(`data/users/${UID}/league`).get(), db.doc(`data/users/${UID}/players`).get(), db.doc(`data/users/${UID}/leagues`).get()]);
+        if (p.exists) PLAYERS = JSON.parse(p.data().json);
+        if (idx.exists && Array.isArray(idx.data().list)) LEAGUES = idx.data().list;
+        const want = PREF.league && LEAGUES.some((x) => String(x.id) === String(PREF.league) && !x.primary) ? PREF.league : null;
+        if (want) await switchLeague(want);
+        else if (l.exists && PLAYERS) {
+          const merged = { ...PLAYERS, ...JSON.parse(l.data().json) };
+          if (!validateBundle(merged) && (B.demo || String(merged.fetched) > String(B.fetched) || String(merged.league.id) !== leagueKey())) {
+            setBundle(merged);
+            store.set("flr-bundle", JSON.stringify(merged));
+          }
+        }
+        const [r, n] = await Promise.all([db.doc(`data/users/${UID}/report`).get(), db.doc(`data/users/${UID}/newsletter`).get()]);
+        if (r.exists) REPORT = r.data();
+        if (n.exists) NEWS = n.data();
+        showMainOnly();
+        renderBoard();
+      }
+    } catch (e) { /* account storage unavailable: the browser copy still works */ }
+  }
+  loadedInfo();
+}
+
+/* Move to another league: its own data, its own "you", and a different accent so it is never mistaken for the main one. */
+async function switchLeague(id) {
+  const L = LEAGUES.find((x) => String(x.id) === String(id));
+  if (!L || !CAP.db || !UID || !PLAYERS) return;
+  const msg = $("#lg-msg");
+  try {
+    const d = await CAP.db.doc(`data/users/${UID}/${L.primary ? "league" : "league_" + L.id}`).get();
+    if (!d.exists) { if (msg) msg.textContent = `No data for ${L.name} yet.`; return; }
+    const merged = { ...PLAYERS, ...JSON.parse(d.data().json) };
+    if (validateBundle(merged)) return;
+    PREF.league = L.primary ? "" : String(L.id); savePrefs();
+    setBundle(merged);
+    if (L.primary) store.set("flr-bundle", JSON.stringify(merged));
+    showMainOnly();
+  } catch (e) { if (msg) msg.textContent = "Couldn't load that league. Try again."; }
+}
+
+/* The weekly report and newsletter belong to the main league; other leagues say so instead of showing them. */
+function showMainOnly() {
+  const main = LEAGUES.find((x) => x.primary);
+  const note = !isMain() && main ? `The weekly report and newsletter are written for ${main.name}. Switch to it in the bar at the top to see them.` : "";
+  $("#auto-wrap").hidden = true;
+  if (isMain()) { if (REPORT) showAutoReport(REPORT); if (NEWS) showNewsletter(NEWS); else { $("#nl-body").innerHTML = `<p class="muted">No newsletter yet. The first one appears here after the daily task has run for a finished gameweek.</p>`; } }
+  else { $("#nl-body").innerHTML = `<p class="muted">${esc(note)}</p>`; $("#nl-save").hidden = true; }
+}
+
+/* The report the scheduled task writes each gameweek, kept in the account. */
+function showAutoReport(r) {
+  if (!r || typeof r.text !== "string" || !r.text.trim()) return;
+  $("#auto-wrap").hidden = false;
+  $("#auto-title").textContent = `Gameweek ${r.gw} report`;
+  $("#auto-sub").textContent = `Written automatically ${r.written ? fmtDate(r.written) : ""}${r.voice ? ` in the ${r.voice} voice` : ""}. Write a different one below.`;
+  $("#auto-label").textContent = `${r.league || ""} · GW${r.gw}`;
+  $("#auto-text").textContent = r.text;
+  const c = $("#auto-check");
+  if (typeof r.check === "string" && r.check) { c.hidden = false; c.className = "check " + (/match/i.test(r.check) && !/check before/i.test(r.check) ? "ok" : "flag"); c.textContent = r.check; }
+  $("#auto-copy").onclick = (e) => copyText(r.text, e.currentTarget);
+}
+
+/* The newsletter the scheduled task builds: figures, written columns and the Word file. */
+function showNewsletter(n) {
+  let F, Cl;
+  try { F = JSON.parse(n.figures); Cl = JSON.parse(n.columns); } catch (e) { return; }
+  const rows = (list, cols) => list.map((r, i) => `<tr>${cols.map((c, j) => `<td class="${j ? "num" : "l"}"${i % 2 ? ' style="background:var(--sunk)"' : ""}>${esc(r[c])}</td>`).join("")}</tr>`).join("");
+  const lt = (title, list, head) => `<div class="nl-t"><div class="ban">${esc(title)}</div><div class="tablewrap" style="border-radius:0 0 6px 6px"><table><thead><tr><th class="l">Player</th><th>Team</th><th>${esc(head)}</th></tr></thead><tbody>${list.length ? rows(list, ["player", "club", head === "Ownership" ? "share" : "count"]) : `<tr><td class="l muted" colspan="3">None this week</td></tr>`}</tbody></table></div></div>`;
+  const H = F.highlights || {};
+  const hl = [["Manager of the week", H.manager_of_the_week], ["Biggest rise", H.biggest_rise], ["Biggest fall", H.biggest_fall], ["Best transfers this week", H.best_transfers_this_week],
+    ["Worst transfers this week", H.worst_transfers_this_week], ["Most points on bench this week", H.most_points_on_bench_this_week], ["Most transfers this season", H.most_transfers_this_season],
+    ["Best team value", H.best_team_value], ["Best captain picker", H.best_captain_picker], ["Worst captain picker", H.worst_captain_picker]].filter(([, v]) => v);
+  const P = F.player_highlights || {};
+  const ph = [["Most captained", P.most_captained], ["Most owned", P.most_owned], ["Most transferred in", P.most_transferred_in], ["Most transferred out", P.most_transferred_out]].filter(([, v]) => v);
+  const rich = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  $("#nl-body").innerHTML = `<div class="nl">
+    <div><div class="nl-head"><b>${esc(F.league)} FPL</b><b>Game week ${F.gameweek}</b><span>Fantasy Premier League</span></div>
+    <div class="nl-box">${F.final ? "" : `<p class="muted"><i>Provisional: bonus points weren't final when this was written.</i></p>`}<p>${rich(Cl.intro || "")}</p>
+      <h3>The Managers Column</h3><ul>${(Cl.managers_column || []).map((t) => `<li>${rich(t)}</li>`).join("")}</ul>
+      <h3>The Transfer &amp; Chip Column</h3><ul>${(Cl.transfer_chip_column || []).map((t) => `<li>${rich(t)}</li>`).join("")}</ul></div></div>
+    <div class="nl-grid">
+      <div class="nl-col">
+        <div class="nl-t"><div class="ban">Manager Highlights</div><div class="tablewrap" style="border-radius:0 0 6px 6px"><table><thead><tr><th class="l">Team</th><th class="l">Manager</th><th>Pts/#</th></tr></thead><tbody>
+          ${hl.map(([k, v]) => `<tr><td class="sec" colspan="3">${esc(k.toUpperCase())}</td></tr><tr class="after"><td class="l">${esc(v.team)}</td><td class="l">${esc(v.manager)}</td><td class="num">${esc(v.value)}</td></tr>`).join("")}</tbody></table></div></div>
+        <div class="nl-t"><div class="ban">Player Highlights</div><div class="tablewrap" style="border-radius:0 0 6px 6px"><table><thead><tr><th class="l">Player</th><th>#</th></tr></thead><tbody>
+          ${ph.map(([k, v]) => `<tr><td class="sec" colspan="2">${esc(k.toUpperCase())}</td></tr><tr class="after"><td class="l">${esc(v.player)}</td><td class="num">${esc(v.value)}</td></tr>`).join("")}</tbody></table></div></div>
+      </div>
+      <div class="nl-col">${lt("Top 5 Transfers IN", F.transfers_in_top5 || [], "Transfers In")}${lt("Top 5 Transfers OUT", F.transfers_out_top5 || [], "Transfers Out")}${lt(`Top 10 Player Ownership (GW${F.gameweek})`, F.ownership_top10 || [], "Ownership")}</div>
+    </div>
+    <div class="nl-box solo"><h3 style="margin-top:0">Players Column</h3>${(Cl.players_column || []).map((t) => `<p>${rich(t)}</p>`).join("")}</div>
+    ${n.check ? `<p class="check ${/match/i.test(n.check) && !/check before/i.test(n.check) ? "ok" : "flag"}" style="padding:0">${esc(n.check)}</p>` : ""}
+  </div>`;
+  const btn = $("#nl-save");
+  if (CAP.downloads && n.docx_b64) {
+    btn.hidden = false;
+    btn.onclick = async () => {
+      const bin = atob(n.docx_b64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const msg = $("#nl-msg");
+      try { await CAP.downloads.save({ filename: `GW${F.gameweek}_FPL_Newsletter.docx`, data: bytes }); msg.className = "msg ok"; msg.textContent = "Saved."; }
+      catch (e) { msg.className = "msg"; msg.textContent = e && e.code === "declined" ? "" : "Couldn't save it here. The Word file is also in your GitHub repo under data/newsletters."; }
+    };
+  }
+}
+
+function loadFile(file) {
+  const msg = $("#load-msg");
+  msg.className = "msg"; msg.textContent = "Reading " + file.name + "…";
+  const r = new FileReader();
+  r.onload = async () => {
+    let b;
+    try { b = JSON.parse(r.result); } catch (e) { msg.className = "msg err"; msg.textContent = "That file isn't valid JSON. Run fpl_fetch.py again and drop the new fpl_bundle.json."; return; }
+    const bad = validateBundle(b);
+    if (bad) { msg.className = "msg err"; msg.textContent = bad; return; }
+    setBundle(b);
+    const where = await persist(b);
+    msg.className = "msg ok";
+    msg.textContent = `Loaded ${b.league.name}, gameweek ${b.gw}, ${b.managers.length} managers. ${where}`;
+    loadedInfo();
+  };
+  r.onerror = () => { msg.className = "msg err"; msg.textContent = "Couldn't read that file. Try choosing it again."; };
+  r.readAsText(file);
+}
+
+function loadedInfo() {
+  const e = S.ev.get(S.gw) || {};
+  const when = B.demo ? "" : ` Fetched ${fmtDate(B.fetched)}.`;
+  $("#loaded-info").textContent = B.demo
+    ? "The example league is showing. Nothing of yours is loaded."
+    : `${B.league.name}: ${S.M.length} managers, gameweek ${S.gw}${e.checked ? " (final)" : " (not final yet)"}.${when} ${UID ? "Kept in your account and this browser." : "Kept in this browser."}`;
+  $("#clear").hidden = !!B.demo;
+}
+
+/* ------------------------------------------------------------ helpers */
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) { return iso; }
+}
+const meM = () => S.M.find((m) => m.name === PREF.me) || null;
+function highlights() {
+  const top = tableAt(S, span.b).slice(0, 3).map((r) => r.m.name);
+  const cols = ["var(--accent)", "var(--s2)", "var(--s3)"];
+  if (!PREF.me) return top.map((n, i) => ({ n, c: cols[i] }));
+  const out = [{ n: PREF.me, c: "var(--me)" }];
+  top.filter((n) => n !== PREF.me).slice(0, 2).forEach((n, i) => out.push({ n, c: cols[i] }));
+  return out;
+}
+const colOf = (n, H) => (H.find((h) => h.n === n) || {}).c || null;
+function niceStep(range, target) {
+  const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function tipFor(svg) {
+  const fig = svg.closest(".chart"); let t = fig.querySelector(".tip");
+  if (!t) { t = document.createElement("div"); t.className = "tip"; t.hidden = true; fig.appendChild(t); }
+  return {
+    show(evt, text) { const r = fig.getBoundingClientRect(); t.textContent = text; t.style.left = (evt.clientX - r.left) + "px"; t.style.top = (evt.clientY - r.top) + "px"; t.hidden = false; },
+    hide() { t.hidden = true; },
+  };
+}
+
+/* ------------------------------------------------------------ top bar */
+
+function renderBoard() {
+  const e = S.ev.get(S.gw) || {};
+  $("#league-name").textContent = B.league.name;
+  document.title = B.demo ? "FPL League Room" : `${B.league.name} · League Room`;
+  $("#board-gw").textContent = `GW${S.gw}`;
+  const nx = B.events.find((x) => x.next);
+  const pills = [];
+  if (B.demo) pills.push(`<span class="pill demo">Example data</span>`);
+  else {
+    pills.push(`<span class="pill${e.checked ? "" : " warn"}">GW${S.gw} ${e.checked ? "final" : "not final"}</span>`);
+    pills.push(`<span class="pill" title="When the data was fetched">Fetched ${esc(fmtDate(B.fetched))}</span>`);
+  }
+  if (nx && nx.deadline) pills.push(`<span class="pill">GW${nx.id} deadline ${esc(fmtDate(nx.deadline))}</span>`);
+  if (LEAGUES.length > 1) {
+    const i = LEAGUES.findIndex((x) => String(x.id) === leagueKey());
+    pills.unshift(`<span class="pill lg">${i >= 0 ? `League ${i + 1} of ${LEAGUES.length}` : "League"} · ${S.M.length} managers</span>`);
+  }
+  $("#status").innerHTML = pills.join("");
+  const lp = $("#league-pick");
+  lp.hidden = LEAGUES.length < 2;
+  if (LEAGUES.length > 1) {
+    lp.innerHTML = LEAGUES.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}${x.primary ? " (main)" : ""}</option>`).join("");
+    lp.value = leagueKey();
+  }
+  const sel = $("#me");
+  sel.innerHTML = `<option value="">Pick your name</option>` + tableAt(S, S.gw).map((r) => `<option value="${esc(r.m.name)}">${esc(r.m.name)}</option>`).join("");
+  sel.value = PREF.me || "";
+  $("#demo-banner").hidden = !B.demo;
+}
+
+/* ------------------------------------------------------------ league view */
+
+function renderLeague() {
+  const g = S.gw, T = tableAt(S, g), prevT = S.gws.includes(g - 1) ? tableAt(S, g - 1) : null;
+  const G = avgOf(S, g);
+  $("#table-title").textContent = `The table after GW${g}`;
+  $("#th-gw").textContent = `GW${g}`;
+  const lead = T[0], second = T[1] || T[0];
+  const moves = prevT ? T.map((r) => { const p = prevT.find((x) => x.m === r.m); return p ? { m: r.m, c: p.rank - r.rank } : null; }).filter(Boolean) : [];
+  const climb = moves.slice().sort((a, b) => b.c - a.c)[0];
+  const lg = leagueAvg(S, g);
+  $("#verdict").innerHTML =
+    `<div><b>${esc(short(lead.m.name))}</b><span>Top on ${lead.total}</span></div>` +
+    `<div><b>${lead.total - second.total}</b><span>Points clear of 2nd</span></div>` +
+    (climb && climb.c > 0 ? `<div><b>+${climb.c}</b><span>Biggest climb in GW${g}: ${esc(climb.m.name)}</span></div>` : `<div><b>0</b><span>Nobody climbed in GW${g}</span></div>`) +
+    `<div><b>${G == null ? "–" : signed(Math.round((lg - G) * 10) / 10)}</b><span>League average vs global, GW${g}</span></div>`;
+
+  const me = meM(), yc = $("#youcard");
+  const myRow = me && T.find((r) => r.m === me);
+  if (myRow) {
+    const i = T.indexOf(myRow), above = i > 0 ? T[i - 1] : null;
+    const pr = prevT && prevT.find((x) => x.m === me);
+    const mv = pr ? pr.rank - myRow.rank : 0;
+    const st = spanStats(S, me, S.first, g);
+    const vs = G == null ? null : myRow.pts - G;
+    yc.hidden = false;
+    yc.innerHTML = `<span class="big">${ordinal(myRow.rank)}</span><b>${esc(me.name)} · ${myRow.total} pts</b>
+      <p>${mv > 0 ? `Up ${mv} this week.` : mv < 0 ? `Down ${-mv} this week.` : "No change this week."}
+      GW${g} score ${myRow.pts}${myRow.cost ? ` (${myRow.pts - myRow.cost} after the hit)` : ""}${vs == null ? "" : `, ${Math.abs(vs)} ${vs >= 0 ? "above" : "below"} the global average`}.
+      ${myRow.rank === 1 && T[1] ? `Leading by ${myRow.total - T[1].total}.` : `${lead.total - myRow.total} behind 1st${above && above.rank !== 1 ? `, ${above.total - myRow.total} behind ${ordinal(above.rank)}` : ""}.`}
+      Beat the global average in ${st.beatG} of ${st.played} weeks.</p>`;
+  } else yc.hidden = true;
+
+  $("#standings").innerHTML = T.map((r) => {
+    const p = prevT && prevT.find((x) => x.m === r.m);
+    const mv = p ? p.rank - r.rank : 0;
+    const mvH = !p ? `<span class="mv same">new</span>` : mv > 0 ? `<span class="mv up">▲ ${mv}</span>` : mv < 0 ? `<span class="mv down">▼ ${-mv}</span>` : `<span class="mv same">–</span>`;
+    const chip = chipAt(r.m, g);
+    return `<tr class="${r.m.name === PREF.me ? "me" : ""}"><td class="l pos">${r.rank}</td><td class="l">${mvH}</td>
+      <td class="l"><div class="who"><b>${esc(r.m.name)}${chip ? `<span class="badge">${esc(CHIP[chip] || chip)}</span>` : ""}</b><span>${esc(r.m.team)}</span></div></td>
+      <td>${G == null ? r.pts : `<span class="gw ${r.pts > G ? "above" : "below"}">${r.pts}</span>`}${r.cost ? `<span class="badge">−${r.cost}</span>` : ""}</td>
+      <td class="num">${r.total}</td><td class="num muted">${r.rank === 1 ? "" : "−" + (lead.total - r.total)}</td></tr>`;
+  }).join("");
+
+  const opts = S.gws.map((x) => `<option value="${x}">GW${x}</option>`).join("");
+  $("#span-from").innerHTML = opts; $("#span-to").innerHTML = opts;
+  $("#span-from").value = span.a; $("#span-to").value = span.b;
+  renderSpan();
+}
+
+function renderSpan() {
+  const { a, b } = span, n = b - a + 1;
+  $("#span-note").textContent = n === 1
+    ? `GW${a} only. Pick a wider span to see consistency and movement.`
+    : `GW${a} to GW${b}: ${n} gameweeks. Positions in the charts are real league positions; points in the squad sheet count only these weeks.`;
+  const ins = insights(S, a, b);
+  $("#insights").innerHTML = ins.length ? ins.map((i) => `<article class="note ${i.kind}"><span class="tag">${{ skill: "Skill", cost: "Cost", luck: "Luck", world: "Context" }[i.kind]}</span>
+    <div class="stat"><b>${esc(i.stat)}</b><span>${esc(i.unit)}</span></div><h3>${esc(i.head)}</h3><p>${esc(i.body)}</p></article>`).join("")
+    : `<p class="muted">Not enough weeks in this span to separate anyone yet.</p>`;
+  $("#chartnote").textContent = PREF.me ? "Highlighted: you and the top of the table. Hover a grey line to see who it is." : "Highlighted: the top three. Pick yourself in the bar above to follow your own line.";
+  $("#sheet-note").textContent = `GW${a} to GW${b}. Click a column to sort.`;
+  bump(); weekChart(); scatter(); orank(); sheet();
+}
+
+function xScale(L, R, W) {
+  const gs = S.gws.filter((g) => g >= span.a && g <= span.b);
+  const n = gs.length;
+  return { gs, x: (g) => (n === 1 ? (L + W - R) / 2 : L + gs.indexOf(g) * (W - L - R) / (n - 1)) };
+}
+function xLabels(s, gs, x, H) {
+  const every = Math.ceil(gs.length / 10);
+  gs.forEach((g, i) => { if (i % every === 0 || i === gs.length - 1) txt(s, x(g), H - 6, "GW" + g, { "text-anchor": "middle" }); });
+}
+
+function lineChart(id, { W, H, L, R, T, B: Bm, yOf, ticks, series, label }) {
+  const s = $("#" + id); s.innerHTML = ""; s.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const { gs, x } = xScale(L, R, W);
+  ticks.forEach(([v, l]) => { el("line", { x1: L, x2: W - R, y1: yOf(v), y2: yOf(v), stroke: "var(--line)" }, s); txt(s, L - 8, yOf(v) + 4, l, { "text-anchor": "end" }); });
+  xLabels(s, gs, x, H);
+  const H2 = highlights(), tip = tipFor(s);
+  const pts = (m) => gs.map((g) => { const v = series(m, g); return v == null ? null : x(g) + "," + yOf(v); }).filter(Boolean).join(" ");
+  S.M.filter((m) => !colOf(m.name, H2)).forEach((m) => {
+    const p = pts(m); if (!p) return;
+    const grp = el("g", { class: "mgr" }, s);
+    el("polyline", { points: p, class: "bg-line" }, grp);
+    const hit = el("polyline", { points: p, class: "hit" }, grp);
+    hit.addEventListener("mousemove", (e) => tip.show(e, `${m.name} · ${label(m)}`));
+    hit.addEventListener("mouseleave", () => tip.hide());
+  });
+  const ends = [];
+  S.M.filter((m) => colOf(m.name, H2)).forEach((m) => {
+    const c = colOf(m.name, H2), p = pts(m); if (!p) return;
+    el("polyline", { points: p, fill: "none", stroke: c, "stroke-width": m.name === PREF.me ? 3.5 : 2.5, "stroke-linejoin": "round", "stroke-linecap": "round" }, s);
+    gs.forEach((g) => { const v = series(m, g); if (v != null) el("circle", { cx: x(g), cy: yOf(v), r: 3.5, fill: c }, s); });
+    const last = series(m, gs[gs.length - 1]);
+    if (last != null) ends.push({ y: yOf(last), c, t: label(m) + "  " + short(m.name) });
+  });
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  ends.forEach((e) => txt(s, W - R + 10, e.y + 4, e.t, { class: "lbl", style: "fill:" + e.c }));
+}
+
+function bump() {
+  const N = S.M.length, T = 12, Bm = 26, H = Math.max(220, Math.min(420, 60 + N * 18));
+  const step = Math.max(1, Math.round(N / 5));
+  const ticks = [1]; for (let k = 1 + step; k < N; k += step) ticks.push(k); if (N > 1) ticks.push(N);
+  lineChart("c-bump", { W: 680, H, L: 34, R: 140, T, B: Bm, yOf: (p) => T + (N === 1 ? 0 : (p - 1) * (H - T - Bm) / (N - 1)),
+    ticks: [...new Set(ticks)].map((v) => [v, v]), series: (m, g) => rankOf(S, m, g), label: (m) => ordinal(rankOf(S, m, span.b)) });
+}
+
+function orank() {
+  const all = S.M.flatMap((m) => S.gws.filter((g) => g >= span.a && g <= span.b).map((g) => (m.hist.get(g) || {}).orank)).filter((v) => v > 0);
+  const s = $("#c-orank");
+  if (!all.length) { s.innerHTML = ""; s.setAttribute("viewBox", "0 0 680 40"); txt(s, 10, 24, "No overall rank in the data."); return; }
+  const lo = Math.log10(Math.min(...all)) - 0.05, hi = Math.log10(Math.max(...all)) + 0.05;
+  const T = 12, Bm = 26, H = 260;
+  const ticks = [];
+  for (let p = Math.floor(lo); p <= Math.ceil(hi); p++) for (const k of [1, 2, 5]) { const v = k * 10 ** p; const lv = Math.log10(v); if (lv >= lo && lv <= hi) ticks.push(v); }
+  const fmt = (v) => (v >= 1e6 ? (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + "m" : v >= 1e3 ? Math.round(v / 1e3) + "k" : String(v));
+  lineChart("c-orank", { W: 680, H, L: 50, R: 130, T, B: Bm, yOf: (v) => T + (Math.log10(v) - lo) / (hi - lo || 1) * (H - T - Bm),
+    ticks: ticks.map((v) => [v, fmt(v)]), series: (m, g) => { const h = m.hist.get(g); return h && h.orank > 0 ? h.orank : null; },
+    label: (m) => { const h = m.hist.get(span.b); return h && h.orank ? fmt(h.orank) : "–"; } });
+}
+
+function weekChart() {
+  const s = $("#c-week"); s.innerHTML = "";
+  const W = 420, H = 270, L = 34, R = 14, T = 16, Bm = 26;
+  s.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const { gs, x } = xScale(L, R, W);
+  const mx = gs.map((g) => Math.max(...S.M.map((m) => (m.hist.get(g) || { pts: -1 }).pts)));
+  const mn = gs.map((g) => Math.min(...S.M.map((m) => (m.hist.get(g) || { pts: 9999 }).pts)));
+  const hi = Math.ceil(Math.max(...mx, ...gs.map((g) => avgOf(S, g) || 0)) / 20) * 20 + 10, lo = 0;
+  const y = (v) => T + (hi - v) / (hi - lo) * (H - T - Bm);
+  const step = niceStep(hi, 4);
+  for (let v = 0; v <= hi; v += step) { el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: "var(--line)" }, s); txt(s, L - 8, y(v) + 4, v, { "text-anchor": "end" }); }
+  xLabels(s, gs, x, H);
+  if (gs.length > 1) el("polygon", { points: gs.map((g, i) => x(g) + "," + y(mx[i])).concat(gs.slice().reverse().map((g, j) => x(g) + "," + y(mn[gs.length - 1 - j]))).join(" "), fill: "var(--accent-soft)" }, s);
+  if (gs.length <= 12) gs.forEach((g, i) => { txt(s, x(g), y(mx[i]) - 6, mx[i], { "text-anchor": "middle" }); txt(s, x(g), y(mn[i]) + 14, mn[i], { "text-anchor": "middle" }); });
+  const line = (vals, a) => el("polyline", { points: gs.map((g, i) => vals[i] == null ? null : x(g) + "," + y(vals[i])).filter(Boolean).join(" "), fill: "none", ...a }, s);
+  line(gs.map((g) => avgOf(S, g)), { stroke: "var(--ink)", "stroke-width": 1.5, "stroke-dasharray": "5 4" });
+  line(gs.map((g) => leagueAvg(S, g)), { stroke: "var(--accent)", "stroke-width": 3 });
+  const me = meM();
+  if (me) { line(gs.map((g) => (me.hist.get(g) || {}).pts ?? null), { stroke: "var(--me)", "stroke-width": 2 }); gs.forEach((g) => { const h = me.hist.get(g); if (h) el("circle", { cx: x(g), cy: y(h.pts), r: 3, fill: "var(--me)" }, s); }); }
+  $("#you-leg").innerHTML = me ? `<i style="background:var(--me)"></i>${esc(short(me.name))}` : "";
+}
+
+function scatter() {
+  const s = $("#c-scatter"); s.innerHTML = "";
+  const W = 420, H = 270, L = 38, R = 14, T = 16, Bm = 36;
+  s.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const st = S.M.map((m) => spanStats(S, m, span.a, span.b)).filter((x) => x && x.played === x.span && x.sd != null);
+  if (st.length < 2) { txt(s, W / 2, H / 2, "Needs at least two gameweeks.", { "text-anchor": "middle" }); return; }
+  const xs = st.map((d) => d.mean), ys = st.map((d) => d.sd);
+  const pad = (a, b) => { const r = (b - a) || 4; return [a - r * 0.12, b + r * 0.12]; };
+  const [x0, x1] = pad(Math.min(...xs), Math.max(...xs)), [y0, y1] = pad(Math.min(...ys), Math.max(...ys));
+  const x = (v) => L + (v - x0) / (x1 - x0) * (W - L - R), y = (v) => T + (y1 - v) / (y1 - y0) * (H - T - Bm);
+  const sx = niceStep(x1 - x0, 4), sy = niceStep(y1 - y0, 4);
+  for (let v = Math.ceil(x0 / sx) * sx; v <= x1; v += sx) { el("line", { x1: x(v), x2: x(v), y1: T, y2: H - Bm, stroke: "var(--line)" }, s); txt(s, x(v), H - Bm + 14, Math.round(v * 10) / 10, { "text-anchor": "middle" }); }
+  for (let v = Math.ceil(y0 / sy) * sy; v <= y1; v += sy) { el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: "var(--line)" }, s); txt(s, L - 8, y(v) + 4, Math.round(v * 10) / 10, { "text-anchor": "end" }); }
+  txt(s, (L + W - R) / 2, H - 4, "Points per week, after hits", { "text-anchor": "middle" });
+  txt(s, L, T - 5, "Std dev");
+  const H2 = highlights(), tip = tipFor(s);
+  const always = [st.slice().sort((a, b) => a.sd - b.sd)[0].m.name, st.slice().sort((a, b) => b.sd - a.sd)[0].m.name];
+  st.slice().sort((a) => (colOf(a.m.name, H2) ? 1 : -1)).forEach((d) => {
+    const c = colOf(d.m.name, H2);
+    const dot = el("circle", { cx: x(d.mean), cy: y(d.sd), r: c ? 6 : 4.5, fill: c || "var(--muted)", "fill-opacity": c ? 1 : 0.55, style: "cursor:pointer" }, s);
+    dot.addEventListener("mousemove", (e) => tip.show(e, `${d.m.name} · ${d.mean} a week · sd ${d.sd}`));
+    dot.addEventListener("mouseleave", () => tip.hide());
+    if (c || always.includes(d.m.name)) { const left = x(d.mean) > W * 0.7; txt(s, x(d.mean) + (left ? -9 : 9), y(d.sd) + 4, short(d.m.name), { class: "lbl", "text-anchor": left ? "end" : "start", style: "fill:" + (c || "var(--ink)") }); }
+  });
+}
+
+function sheet() {
+  const t = $("#sheet"), tb = t.querySelector("tbody");
+  const rows = S.M.map((m) => spanStats(S, m, span.a, span.b)).filter(Boolean).map((s) => ({ ...s, name: s.m.name, rank: rankOf(S, s.m, span.b) ?? 999, bestN: s.best.pts, worstN: s.worst.pts }));
+  const val = (r, k) => (k === "best" ? r.bestN : k === "worst" ? r.worstN : k === "sd" ? (r.sd ?? -1) : r[k]);
+  rows.sort((a, b) => { const va = val(a, sortK), vb = val(b, sortK); return (typeof va === "string" ? va.localeCompare(vb) : va - vb) * sortDir || a.rank - b.rank; });
+  tb.innerHTML = rows.map((r) => `<tr class="${r.name === PREF.me ? "me" : ""}"><td class="l pos">${r.rank === 999 ? "–" : r.rank}</td>
+    <td class="l"><div class="who"><b>${esc(r.name)}</b><span>${esc(r.m.team)}${r.played < r.span ? ` · played ${r.played} of ${r.span}` : ""}</span></div></td>
+    <td class="num">${r.total}</td><td class="num">${r.mean}</td><td class="num">${r.sd ?? "–"}</td><td class="num">${r.best.pts} <span class="muted">GW${r.best.gw}</span></td><td class="num">${r.worst.pts} <span class="muted">GW${r.worst.gw}</span></td>
+    <td class="num">${r.beatG} of ${r.played}</td><td class="num">${r.bench}</td><td class="num">${r.hits ? "−" + r.hits : "0"}</td><td class="num">${r.tx}</td>
+    <td class="l muted">${r.chips.length ? r.chips.map((c) => esc(c[0]) + " GW" + c[1]).join(", ") : "None"}</td></tr>`).join("");
+  $$("th[data-k]", t).forEach((th) => {
+    th.setAttribute("aria-sort", th.dataset.k === sortK ? (sortDir > 0 ? "ascending" : "descending") : "none");
+    th.querySelector("button").onclick = () => {
+      const k = th.dataset.k;
+      if (k === sortK) sortDir *= -1; else { sortK = k; sortDir = ["rank", "name", "sd", "hits", "bench", "tx"].includes(k) ? 1 : -1; }
+      sheet();
+    };
+  });
+}
+
+/* ------------------------------------------------------------ gameweek view */
+
+function renderGameweek() {
+  const w = gameweek(S);
+  $("#gw-final").hidden = w.final || !!B.demo;
+  $("#gw-title").textContent = `Gameweek ${w.gw}`;
+  $("#gw-sub").textContent = w.globalAvg != null ? `League average ${w.leagueAvg}, global average ${w.globalAvg}, highest in the world ${w.globalHigh ?? "–"}.` : "";
+  const places = ["Winner", "Second", "Third"];
+  $("#podium").innerHTML = w.byPts.slice(0, 3).map((r, i) => `<div class="step"><span class="place">${places[i]}</span><span class="score">${r.pts}</span>
+    <b style="color:var(--ink)">${esc(r.m.name)}</b><span class="muted" style="font-size:.82rem">${r.chipLabel ? esc(r.chipLabel) + " · " : ""}${r.hit ? `${r.net} after the −${r.hit} hit` : "no hit"}${w.globalAvg != null ? ` · ${signed(r.pts - w.globalAvg)} vs global` : ""}</span></div>`).join("");
+
+  const F = [];
+  const f = (k, v) => v && F.push(`<div class="fact"><dt>${k}</dt><dd>${v}</dd></div>`);
+  f("Climber", w.climb && `<b>${esc(w.climb.m.name)}</b> up ${w.climb.change}, ${ordinal(w.climb.prev)} to ${ordinal(w.climb.rank)}`);
+  f("Faller", w.fall && `<b>${esc(w.fall.m.name)}</b> down ${-w.fall.change}, ${ordinal(w.fall.prev)} to ${ordinal(w.fall.rank)}`);
+  const mc = Object.entries(w.capCounts).sort((a, b) => b[1] - a[1])[0];
+  f("Captain", w.bestCap && `Best: <b>${esc(w.bestCap.m.name)}</b>'s ${esc(w.bestCap.cap.effective.name)}, ${w.bestCap.cap.effective.delivered} pts${mc ? `. Most picked: ${esc(mc[0])} (${mc[1]})` : ""}`);
+  f("Armband moved", w.armMoved.length && w.armMoved.map((r) => `<b>${esc(r.m.name)}</b>: ${esc(r.cap.nominal.name)} didn't play, ${esc(r.cap.effective.name)} scored ${r.cap.effective.delivered}`).join("<br>"));
+  f("Best transfer", w.bestTx && `<b>${esc(w.bestTx.m.name)}</b>: ${esc(w.bestTx.in)} (${w.bestTx.inPts}) for ${esc(w.bestTx.out)} (${w.bestTx.outPts}), ${signed(w.bestTx.net)}`);
+  f("Worst transfer", w.worstTx && w.worstTx !== w.bestTx && `<b>${esc(w.worstTx.m.name)}</b>: ${esc(w.worstTx.in)} (${w.worstTx.inPts}) for ${esc(w.worstTx.out)} (${w.worstTx.outPts}), ${signed(w.worstTx.net)}`);
+  f("Busiest", w.busiest && `<b>${esc(w.busiest.m.name)}</b>, ${w.busiest.tx} transfers${w.busiest.hit ? `, −${w.busiest.hit} in hits` : ""}`);
+  f("Biggest bench", w.benchKing && w.benchKing.bench > 0 && `<b>${esc(w.benchKing.m.name)}</b> left ${w.benchKing.bench} pts on the bench${w.benchKing.topBench ? `, ${esc(w.benchKing.topBench.name)} ${w.benchKing.topBench.pts} of them` : ""}`);
+  f("Chips", w.chips.length && w.chips.map((r) => `<b>${esc(r.m.name)}</b>: ${esc(r.chipLabel)}${r.chipGain != null ? ` (${r.chip === "wildcard" ? `${signed(r.chipGain)} vs the old team` : `+${r.chipGain} from the chip`})` : ""}`).join("<br>"));
+  f("Differentials", w.differentials.length && w.differentials.map((d) => `${esc(d.player)} (${esc(d.team)}) ${d.pts} pts, only <b>${esc(d.m.name)}</b> started him`).join("<br>"));
+  $("#gw-facts").innerHTML = F.join("") || `<p class="muted">A quiet week: nothing stands out.</p>`;
+
+  $("#gw-scores").innerHTML = w.byPts.map((r) => `<tr class="${r.m.name === PREF.me ? "me" : ""}"><td class="l"><div class="who"><b>${esc(r.m.name)}</b><span>${esc(r.m.team)}</span></div></td>
+    <td>${w.globalAvg == null ? r.pts : `<span class="gw ${r.pts > w.globalAvg ? "above" : "below"}">${r.pts}</span>`}</td>
+    <td class="num">${r.hit ? "−" + r.hit : ""}</td><td class="num">${w.globalAvg == null ? "–" : signed(r.pts - w.globalAvg)}</td>
+    <td class="l">${r.cap && r.cap.effective ? `${esc(r.cap.effective.name)} <span class="muted">${r.cap.effective.delivered}</span>${r.cap.moved ? `<span class="badge flag">vice</span>` : ""}` : "–"}</td>
+    <td class="num">${r.tx}</td><td class="num">${r.bench}</td><td class="l muted">${r.chipLabel ? esc(r.chipLabel) : ""}</td></tr>`).join("");
+}
+
+/* ------------------------------------------------------------ insights view */
+
+let INS = null, insSort = { teams: { k: "rank", d: 1 }, players: { k: "pts", d: -1 } }, insPos = "";
+function renderInsights() {
+  INS = playerInsights(S);
+  $("#ins-empty").hidden = !!INS; $("#ins-body").hidden = !INS;
+  if (!INS) return;
+  INS.teams.forEach((t, i) => (t.rank = i + 1));
+  const li = (p, right) => `<li><span style="font-family:var(--body);color:var(--text);white-space:normal"><b>${esc(p.name)}</b> ${esc(p.club)} · ${p.pos} · £${p.cost}m</span><span>${right}</span><span>${p.leagueOwnPct}% own</span></li>`;
+  $("#ins-missing").innerHTML = INS.missing.length ? INS.missing.map((p) => li(p, `${p.pts} pts`)).join("") : `<li class="muted">Nobody: the league owns all the top scorers.</li>`;
+  $("#ins-favs").innerHTML = INS.leagueFavs.map((p) => li(p, `${p.ppm} pts/£m`)).join("");
+  $("#ins-pos").innerHTML = INS.positions.map((r) => `<div class="poscard"><span class="pn">${r.pos}</span>
+    <dl><dt>Regulars</dt><dd>${r.regulars}</dd><dt>Avg pts</dt><dd>${r.avgPts ?? "–"}</dd><dt>Avg pts/£m</dt><dd>${r.avgPpm ?? "–"}</dd>
+    <dt>Top scorer</dt><dd>${r.best ? `${esc(r.best.name)} ${r.best.pts}` : "–"}</dd><dt>Best value</dt><dd>${r.bestValue ? `${esc(r.bestValue.name)} ${r.bestValue.ppm}` : "–"}</dd></dl>
+    <span class="muted" style="font-size:.78rem">${r.ownedShare}% of the points in this league's squads</span><div class="share"><i style="width:${r.ownedShare}%"></i></div></div>`).join("");
+  insTeams(); insPlayers();
+}
+function insSortable(table, which, render) {
+  $$("th[data-k]", table).forEach((th) => {
+    const st = insSort[which];
+    th.setAttribute("aria-sort", th.dataset.k === st.k ? (st.d > 0 ? "ascending" : "descending") : "none");
+    th.querySelector("button").onclick = () => { const k = th.dataset.k; if (k === st.k) st.d *= -1; else { st.k = k; st.d = ["rank", "name", "ga", "l", "cost"].includes(k) ? 1 : -1; } render(); };
+  });
+}
+const cmp = (k, d) => (a, b) => { const x = a[k] ?? -1e9, y = b[k] ?? -1e9; return (typeof x === "string" ? x.localeCompare(y) : x - y) * d; };
+function insTeams() {
+  const t = $("#ins-teams"), st = insSort.teams;
+  const rows = INS.teams.slice().sort(cmp(st.k === "name" ? "name" : st.k, st.d));
+  t.querySelector("tbody").innerHTML = rows.map((r) => `<tr><td class="l num">${r.rank}</td><td class="l"><div class="who"><b>${esc(r.name)}</b><span>${esc(r.club)}</span></div></td>
+    <td class="num">${r.p}</td><td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf}</td><td class="num">${r.ga}</td><td class="num">${signed(r.gd)}</td><td class="num">${r.cs}</td>
+    <td class="num"><b style="color:var(--ink)">${r.pts}</b></td><td class="l"><span class="frm">${[...r.form].map((c) => `<span class="${c}">${c}</span>`).join("")}</span></td>
+    <td class="num">${r.fplPts}</td><td class="l">${r.top ? `${esc(r.top.name)} <span class="muted">${r.top.pts}</span>` : "–"}</td><td class="num">${r.leagueOwn}</td>
+    <td class="l">${r.next.map((f) => `<span class="fd d${f.diff}" title="FPL difficulty ${f.diff}">${esc(f.opp)} ${f.venue}</span>`).join("") || "–"}</td></tr>`).join("");
+  insSortable(t, "teams", insTeams);
+}
+function insPlayers() {
+  const t = $("#ins-players"), st = insSort.players, min = +$("#ins-min").value;
+  $$("#ins-posf button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.p === insPos)));
+  const rows = INS.players.filter((p) => (!insPos || p.pos === insPos) && p.mins >= min).sort(cmp(st.k, st.d)).slice(0, 40);
+  t.querySelector("tbody").innerHTML = rows.map((p) => `<tr><td class="l"><b style="color:var(--ink);font-weight:500">${esc(p.name)}</b> <span class="muted">${esc(p.club)}</span>${p.news ? `<span class="badge flag" title="${esc(p.news)}">news</span>` : ""}</td><td class="l muted">${p.pos}</td>
+    <td class="num">${p.cost.toFixed(1)}</td><td class="num"><b style="color:var(--ink)">${p.pts}</b></td><td class="num">${p.ppm}</td><td class="num">${p.per90 ?? "–"}</td><td class="num">${p.form}</td><td class="num">${p.mins}</td>
+    <td class="num">${p.goals}</td><td class="num">${p.assists}</td><td class="num">${p.xgi}</td><td class="num ${p.gaVsXgi >= 1.5 ? "over" : p.gaVsXgi <= -1.5 ? "under" : ""}">${signed(p.gaVsXgi)}</td>
+    <td class="num">${p.cs}</td><td class="num">${p.bonus}</td><td class="num">${p.dc}</td><td class="num">${p.leagueOwnPct}%</td><td class="num muted">${p.globalOwn}%</td></tr>`).join("") || `<tr><td class="l muted" colspan="17">No players match.</td></tr>`;
+  insSortable(t, "players", insPlayers);
+}
+
+/* ------------------------------------------------------------ transfers view */
+
+let lastAdvice = null;
+function renderTransfers() {
+  const who = $("#adv-who");
+  who.innerHTML = tableAt(S, S.gw).map((r) => `<option value="${esc(r.m.name)}">${esc(r.m.name)}</option>`).join("");
+  if (!S.M.some((m) => m.name === adv.who)) adv.who = S.M[0].name;
+  who.value = adv.who;
+  $$("#adv-h button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.h === adv.h)));
+  const m = S.M.find((x) => x.name === adv.who);
+  const est = freeTransferEstimate(m);
+  if (adv.ft == null) adv.ft = est;
+  $("#adv-ft").value = adv.ft;
+  $("#adv-ft-note").textContent = `Estimated ${est} free transfer${est === 1 ? "" : "s"} from the transfer history. Check the number in the FPL app and change it here if it's different.`;
+  const A = advise(S, m, adv.h, adv.ft);
+  lastAdvice = A;
+  const body = $("#adv-body");
+  if (!A) { body.innerHTML = `<p class="muted">No fixtures left to plan for, or no squad in the data.</p>`; return; }
+  const mv = (s, lead) => `<div class="move${lead ? " lead" : ""}">
+    <div class="side"><span class="eyebrow">Out</span><span class="nm">${esc(s.out.name)}</span><span class="meta">${esc(s.out.club)} · £${s.out.cost}m · form ${s.out.form}${s.out.news ? ` · <span style="color:var(--warn)">${esc(s.out.news)}</span>` : ""}</span></div>
+    <span class="gain">+${s.gain} projected</span>
+    <div class="side in"><span class="eyebrow">In</span><span class="nm">${esc(s.in.name)}</span><span class="meta">${esc(s.in.club)} · £${s.in.cost}m · form ${s.in.form} · ${Math.round(s.in.mins / 90 * 10) / 10} full games</span></div>
+    <div class="fx">${esc(s.in.name)}'s next ${A.gws.length}: ${esc(s.in.fixtures || "no fixtures")}. £${s.left}m left in the bank${s.left <= 0.3 ? ", tight: your real selling price may be lower" : ""}.</div></div>`;
+  const maxProj = Math.max(...A.squad.map((x) => x.proj), 1);
+  body.innerHTML = `
+    <section><div class="sechead"><h2>The call</h2><p>GW${A.gws[0]} to GW${A.gws[A.gws.length - 1]} · £${A.bank}m in the bank · best eleven projects ${A.base} pts</p></div>
+      <p class="plan ${A.plan.kind}">${esc(A.plan.text)}</p>
+      ${A.singles[0] ? mv(A.singles[0], true) : ""}
+      ${A.plan.kind === "pair" && A.pair ? `<p class="muted" style="font-size:.88rem">The pair: ${A.pair.out.map((x) => esc(x.name)).join(" and ")} out, ${A.pair.in.map((x) => `${esc(x.name)} (${esc(x.club)}, £${x.cost}m)`).join(" and ")} in. +${A.pair.gain} projected together.</p>` : ""}
+    </section>
+    ${A.singles.length > 1 ? `<section><div class="sechead"><h2>Alternatives</h2></div>${A.singles.slice(1, 4).map((s) => mv(s)).join("")}</section>` : ""}
+    <section><div class="sechead"><h2>Squad projection</h2><p>Lowest first: these are the weak spots. Flags show injury news or doubt.</p></div>
+      <div class="tablewrap"><table><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>Price</th><th>Form</th><th>Projected</th><th class="l">Next fixtures</th></tr></thead><tbody>
+      ${A.squad.map((p) => `<tr><td class="l"><b style="color:var(--ink);font-weight:500">${esc(p.name)}</b> <span class="muted">${esc(p.club)}</span>${p.news ? `<span class="badge flag" title="${esc(p.news)}">${p.avail < 1 ? Math.round(p.avail * 100) + "%" : "news"}</span>` : ""}</td><td class="l muted">${p.posName}</td><td class="num">£${p.cost}</td><td class="num">${p.form}</td>
+        <td class="num">${p.proj} <span class="bar"><i style="width:${Math.round(p.proj / maxProj * 100)}%"></i></span></td><td class="l muted" style="white-space:normal;min-width:12em">${esc(p.fixtures)}</td></tr>`).join("")}
+      </tbody></table></div></section>
+    <section><div class="sechead"><h2>Fixture runs</h2><p>Summed difficulty over the window; double gameweeks count twice.</p></div>
+      <div class="runs"><div><h3>Easiest</h3><ol>${A.easiest.map((r) => `<li><span><b>${esc(r.team)}</b> ${r.n > A.gws.length ? `<span class="badge">${r.n} games</span>` : ""}</span><span>${esc(r.fixtures)}</span></li>`).join("")}</ol></div>
+      <div><h3>Hardest</h3><ol>${A.hardest.map((r) => `<li><span><b>${esc(r.team)}</b> ${r.n < A.gws.length ? `<span class="badge">${r.n} games</span>` : ""}</span><span>${esc(r.fixtures)}</span></li>`).join("")}</ol></div></div></section>
+    <section><p class="muted" style="font-size:.82rem">How it works: each player's value per match is the average of recent form and season points per game, scaled by the share of minutes played. Each fixture scales that by difficulty, from 1.25 for the easiest to 0.75 for the hardest, with a little extra at home, and the first week by chance of playing. A move is worth what it adds to your best possible starting eleven, so upgrading a substitute who would never start counts for nothing. Limits: the squad is as of the last deadline; prices are current prices, so your selling price can be lower; the model knows nothing about expected goals, rotation or price changes.</p></section>`;
+}
+
+/* ------------------------------------------------------------ write-ups */
+
+function writerOff(why) {
+  $("#w-go").disabled = true;
+  $("#w-msg").className = "msg"; $("#w-msg").textContent = why;
+  $$("[data-write]").forEach((b) => (b.hidden = true));
+}
+
+function renderWriter() {
+  $$("#w-kind button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === writer.kind)));
+  const notes = {
+    weekly: `Gameweek ${S.gw}: podium, table, decisions, chips, differentials.`,
+    trend: `Review of GW${span.a} to GW${span.b}. Change the span on the League tab.`,
+    advice: `Transfer advice for ${adv.who}, ${adv.h} gameweeks, ${adv.ft ?? "estimated"} free transfers. Change it on the Transfers tab.`,
+  };
+  $("#w-kind-note").textContent = notes[writer.kind];
+  $("#w-persona").value = PREF.persona || (writer.kind === "trend" ? "pundit" : writer.kind === "advice" ? "plain" : "banter");
+  $("#w-custom-wrap").hidden = $("#w-persona").value !== "custom";
+  $("#w-custom").value = PREF.custom || "";
+  const fav = $("#w-fav");
+  fav.innerHTML = `<option value="">Nobody</option>` + S.M.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("");
+  fav.value = PREF.fav || "";
+  $("#w-dest").value = PREF.dest || "whatsapp";
+}
+
+function buildPrompt() {
+  const kind = writer.kind;
+  let data, task;
+  if (kind === "weekly") {
+    data = payloadWeekly(S);
+    task = `Write the weekly report for ${S.b.league.name}, gameweek ${S.gw}.${data.final ? "" : " The gameweek is NOT final yet: say so in one line at the top."}
+Cover, in this order: the podium (top three scores, flag chips and hits); the table (top three, the biggest climber and faller); decisions (best and worst transfer, the biggest bench, the busiest manager); chips and what they bought; differentials (anyone who won on a player nobody else started); sign off with the league average against the global average. Skip any part whose data is null or empty. Under 380 words.`;
+  } else if (kind === "trend") {
+    data = payloadTrend(S, span.a, span.b);
+    task = `Write a review of ${S.b.league.name} covering gameweeks ${span.a} to ${span.b}. State the span in the first line.
+The table already shows who is winning; find what it hides: process against outcome (a high mean with a poor rank, or a total built on two huge weeks, using consistency_sd), the cost of activity (hit points against transfers), quiet competence (a manager outside the top three who beat the global average most weeks), movement (rank_before_span to rank_after_span), luck (bench points) and chip timing. Name managers and cite their numbers. Close with one concrete piece of advice for whoever is last and one warning for the leader. Under 450 words.`;
+  } else {
+    const A = lastAdvice || advise(S, S.M.find((m) => m.name === adv.who), adv.h, adv.ft ?? 1);
+    data = payloadAdvice(S, A);
+    task = `Give transfer advice for ${A.m.name} (${A.m.team}) for gameweeks ${A.gws[0]} to ${A.gws[A.gws.length - 1]}.
+Lead with the move from "plan" and the first of best_moves: who out, who in, price, and why in one or two sentences, explained with form, minutes, fixtures and injury news, never with the projection number alone. Then up to two alternatives, one line each. Mention best_pair only if the plan uses it. Flag anyone in "flags". If the plan says hold, say holding is fine. End with one short line on the limits. 150 to 250 words.`;
+  }
+  const pk = $("#w-persona").value;
+  let persona = pk === "custom" ? ($("#w-custom").value.trim() || "Plain and friendly.") : $("#p-" + pk).textContent.trim();
+  const fav = $("#w-fav").value;
+  persona = fav ? persona.replace(/FAVOURITE:/g, `Favourite manager: ${fav}.`) : persona.replace(/^.*FAVOURITE:.*$/gm, "").replace(/^\d\. FAVOURITE:.*$/gm, "");
+  const dest = { whatsapp: "a WhatsApp group: plain text, *single asterisks* for bold, short paragraphs.", teams: "a Teams or Slack channel: **double asterisks** for bold section names, short paragraphs.", me: "the manager to read privately: plain text, short paragraphs." }[$("#w-dest").value];
+  const extra = $("#w-extra").value.trim();
+  const prompt = `TASK\n${task}\nIt is going to ${dest}\n\nPERSONA (adopt it completely)\n${persona}${fav ? `\nThe running joke is about ${fav}.` : ""}\n\n${$("#t-rules").textContent.trim()}\n${extra ? `\nEXTRA CONTEXT FROM THE USER (not data; don't invent numbers from it)\n${extra}\n` : ""}\nDATA\n${JSON.stringify(data)}\n\nWrite it now. Output only the finished text, nothing before or after it.`;
+  return { prompt, data };
+}
+
+async function runWriter() {
+  if (!CAP.sample) return;
+  const out = $("#w-out"), check = $("#w-check"), go = $("#w-go"), stop = $("#w-stop"), copy = $("#w-copy"), msg = $("#w-msg");
+  PREF.persona = $("#w-persona").value; PREF.custom = $("#w-custom").value; PREF.fav = $("#w-fav").value; PREF.favBy = PREF.favBy || {}; PREF.favBy[leagueKey()] = PREF.fav; PREF.dest = $("#w-dest").value; savePrefs();
+  const { prompt, data } = buildPrompt();
+  writer.ctl = new AbortController();
+  go.disabled = true; stop.hidden = false; copy.disabled = true; check.hidden = true; msg.textContent = "";
+  out.classList.remove("idle"); out.textContent = "Thinking…";
+  $("#w-label").textContent = { weekly: `Weekly report · GW${S.gw}`, trend: `Review · GW${span.a}–${span.b}`, advice: `Transfers · ${adv.who}` }[writer.kind];
+  let text = "";
+  try {
+    const r = await CAP.sample(prompt, { signal: writer.ctl.signal, cache: false, onText: (u) => { text = u.text; out.textContent = u.text; } });
+    text = r.text; out.textContent = text;
+    if (r.truncated) msg.textContent = "It was cut short. Try a shorter brief or fewer extras.";
+  } catch (e) {
+    if (e && e.text) { text = e.text; out.textContent = text; }
+    const copyFor = {
+      cancelled: "", not_granted: "Write-ups are switched off for this page. You can allow them from the page's permissions.",
+      sampling_disabled: "Claude isn't available on this account.", rate_limited: "Too many requests just now. Try again in a minute.",
+      session_expired: "Sign in to Claude again, then try.", refused: "Claude declined that one. Try a different voice or remove the extra context.",
+      prompt_too_large: "The league is too big for one write-up. Try a shorter span.", empty_completion: "Nothing came back. Try again with a simpler brief.",
+    };
+    const c = e && e.code;
+    if (c === "refused") { text = ""; out.textContent = ""; }
+    if (c === "not_granted" || c === "sampling_disabled") writerOff(copyFor[c]);
+    else { msg.className = "msg err"; msg.textContent = c in copyFor ? copyFor[c] : "The connection dropped. Press Write it to try again."; }
+    if (!text) { out.classList.add("idle"); out.textContent = c === "cancelled" ? "Stopped." : "Nothing written."; }
+  } finally {
+    go.disabled = !CAP.sample; stop.hidden = true; writer.ctl = null;
+  }
+  writer.lastText = text;
+  copy.disabled = !text;
+  if (text) {
+    const nc = numberCheck(text, data);
+    check.hidden = false;
+    check.className = "check " + (nc.unmatched.length ? "flag" : "ok");
+    check.textContent = nc.unmatched.length
+      ? `Check before posting: ${nc.unmatched.join(", ")} ${nc.unmatched.length === 1 ? "doesn't" : "don't"} appear in the data it was given. It may be a sum Claude worked out, or a mistake.`
+      : `All ${nc.checked} numbers match the data it was given.`;
+  }
+}
+
+async function copyText(text, btn) {
+  const was = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+  catch (e) {
+    const r = document.createRange(); const t = $("#w-out"); r.selectNodeContents(t);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent = "Selected: press copy";
+  }
+  setTimeout(() => (btn.textContent = was), 1800);
+}
+
+/* ------------------------------------------------------------ routing and wiring */
+
+const VIEWS = ["league", "gameweek", "insights", "transfers", "newsletter", "write-ups", "data"];
+function route() {
+  const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "league";
+  $$("[data-view]").forEach((x) => (x.hidden = x.dataset.view !== v));
+  $$(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.v === v));
+  if (v === "write-ups") renderWriter();
+  window.scrollTo(0, 0);
+}
+
+function renderAll() {
+  renderBoard(); renderLeague(); renderGameweek(); renderInsights(); renderTransfers(); renderWriter(); loadedInfo();
+}
+
+function wire() {
+  addEventListener("hashchange", route);
+  $("#league-pick").onchange = (e) => switchLeague(e.target.value);
+  $("#me").onchange = (e) => { PREF.me = e.target.value; PREF.meBy = PREF.meBy || {}; PREF.meBy[leagueKey()] = PREF.me; savePrefs(); if (PREF.me) { adv.who = PREF.me; adv.ft = null; } renderLeague(); renderGameweek(); renderTransfers(); };
+  const spanChange = () => {
+    let a = +$("#span-from").value, b = +$("#span-to").value;
+    if (a > b) [a, b] = [b, a];
+    span = { a, b }; $("#span-from").value = a; $("#span-to").value = b; renderSpan();
+  };
+  $("#span-from").onchange = spanChange; $("#span-to").onchange = spanChange;
+  $$("#ins-posf button").forEach((b) => (b.onclick = () => { insPos = b.dataset.p; insPlayers(); }));
+  $("#ins-min").onchange = () => insPlayers();
+  $("#adv-who").onchange = (e) => { adv.who = e.target.value; adv.ft = null; renderTransfers(); };
+  $$("#adv-h button").forEach((b) => (b.onclick = () => { adv.h = +b.dataset.h; PREF.h = adv.h; savePrefs(); renderTransfers(); }));
+  $("#adv-ft").onchange = (e) => { const v = Math.max(0, Math.min(5, Math.round(+e.target.value || 0))); adv.ft = v; renderTransfers(); };
+  $$("[data-write]").forEach((b) => (b.onclick = () => { writer.kind = b.dataset.write; PREF.persona = ""; location.hash = "write-ups"; }));
+  $$("#w-kind button").forEach((b) => (b.onclick = () => { writer.kind = b.dataset.k; PREF.persona = ""; renderWriter(); }));
+  $("#w-persona").onchange = (e) => { PREF.persona = e.target.value; savePrefs(); $("#w-custom-wrap").hidden = e.target.value !== "custom"; };
+  $("#w-go").onclick = runWriter;
+  $("#w-stop").onclick = () => writer.ctl && writer.ctl.abort();
+  $("#w-copy").onclick = (e) => copyText(writer.lastText, e.currentTarget);
+
+  const drop = $("#drop");
+  $("#file").onchange = (e) => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ""; };
+  ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+  const src = $("#fetch-src").textContent.replace(/^\n/, "");
+  $("#script-view").textContent = src;
+  $("#copy-script").onclick = (e) => { const b = e.currentTarget; navigator.clipboard.writeText(src).then(() => { b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy the code"), 1800); }, () => { $("details").open = true; b.textContent = "Select it below"; }); };
+  $("#dl-script").onclick = async () => {
+    const msg = $("#load-msg");
+    try { await CAP.downloads.save({ filename: "fpl_fetch.py", data: src }); msg.className = "msg ok"; msg.textContent = "Saved fpl_fetch.py."; }
+    catch (e) { msg.className = "msg"; msg.textContent = "Not saved. Use Copy the code instead and paste it into a file called fpl_fetch.py."; }
+  };
+  $("#use-demo").onclick = () => { setBundle(demoBundle()); showMainOnly(); location.hash = "league"; };
+  $("#clear").onclick = () => {
+    $("#clear-q").textContent = `Remove ${B.league.name} from this browser${UID ? " and your account" : ""}?`;
+    $("#clear-confirm").hidden = false; $("#clear").hidden = true;
+  };
+  $("#clear-no").onclick = () => { $("#clear-confirm").hidden = true; $("#clear").hidden = false; };
+  $("#clear-yes").onclick = async () => {
+    store.del("flr-bundle");
+    if (CAP.db && UID) { try { await CAP.db.doc(`data/users/${UID}/league`).delete(); await CAP.db.doc(`data/users/${UID}/players`).delete(); } catch (e) {} }
+    $("#clear-confirm").hidden = true;
+    setBundle(demoBundle());
+    $("#load-msg").className = "msg ok"; $("#load-msg").textContent = "Removed. The example league is showing.";
+  };
+}
+
+/* boot */
+(function boot() {
+  let b = null;
+  const raw = store.get("flr-bundle");
+  if (raw) { try { const x = JSON.parse(raw); if (!validateBundle(x)) b = x; } catch (e) {} }
+  wire();
+  setBundle(b || demoBundle());
+  route();
+  initCaps();
+})();
+
+</script>

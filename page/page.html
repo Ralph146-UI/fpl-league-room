@@ -1,0 +1,562 @@
+<title>FPL League Room</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Chivo:wght@400;500;700&family=Chivo+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a matchday room. Sticky scoreboard bar (league, gameweek, deadline, you), tabbed views below, one column up to 1080px. */
+:root{
+  --paper:#f1f4f1; --surface:#fbfcfa; --sunk:#e7ece8; --ink:#13201a; --text:#26332d; --muted:#5a6a62; --line:#d4dcd6; --faint:#c3cdc7;
+  --accent:#12684f; --accent-soft:#d5ebe2; --on-accent:#ffffff;
+  --alt:#2f5fb3; --alt-soft:#dce6f7;
+  --me:#b85a08; --me-soft:#fbe8d6; --s2:#4b50ae; --s3:#2a6fa8;
+  --good:#1d7a3e; --good-soft:#dcefe2; --bad:#b03a2f; --bad-soft:#f7dfdb; --warn:#946200; --warn-soft:#fbefcf;
+  --board:#13201a; --board-fg:#f1f4f1;
+  --fpl-purple:#37003c; --fpl-green:#00ff87; --fpl-on-purple:#ffffff; --fpl-on-green:#13201a;
+  --display:"Saira Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Chivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Chivo Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0d1411; --surface:#141e1a; --sunk:#0a100d; --ink:#e6eee9; --text:#d3ddd7; --muted:#93a39b; --line:#26342e; --faint:#33443c;
+  --accent:#4cbf96; --accent-soft:#163a2e; --on-accent:#0b1410;
+  --alt:#7ea6ec; --alt-soft:#17243d;
+  --me:#f0944a; --me-soft:#3f2611; --s2:#9a9eef; --s3:#6fb0e6;
+  --good:#5fcf86; --good-soft:#163423; --bad:#f07a6f; --bad-soft:#3c1c18; --warn:#e7b84a; --warn-soft:#352a0c; --board:#050a08; --board-fg:#e6eee9;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0d1411; --surface:#141e1a; --sunk:#0a100d; --ink:#e6eee9; --text:#d3ddd7; --muted:#93a39b; --line:#26342e; --faint:#33443c;
+  --accent:#4cbf96; --accent-soft:#163a2e; --on-accent:#0b1410;
+  --alt:#7ea6ec; --alt-soft:#17243d;
+  --me:#f0944a; --me-soft:#3f2611; --s2:#9a9eef; --s3:#6fb0e6;
+  --good:#5fcf86; --good-soft:#163423; --bad:#f07a6f; --bad-soft:#3c1c18; --warn:#e7b84a; --warn-soft:#352a0c; --board:#050a08; --board-fg:#e6eee9;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+/* A league other than the main one swaps the accent to blue and marks the top bar, so the two never look alike. */
+body.alt-league{--accent:var(--alt);--accent-soft:var(--alt-soft)}
+body.alt-league .board{box-shadow:inset 0 4px 0 var(--alt)}
+.pill.lg{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:500}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#league-pick{font-weight:600;max-width:17em}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.55;margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--board)}
+h1,h2,h3{font-family:var(--display);color:var(--ink);margin:0;line-height:1.05;text-wrap:balance;font-weight:600}
+h2{font-size:1.75rem;text-transform:uppercase;letter-spacing:.01em}
+h3{font-size:1.2rem;letter-spacing:.01em}
+p{margin:0}
+a{color:var(--accent)}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* scoreboard bar */
+.board{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--board);color:var(--board-fg);border-bottom:1px solid var(--line)}
+.board-in{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 0;display:flex;flex-direction:column;gap:8px}
+.board-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:12px;min-width:0}
+.brand h1{color:var(--board-fg);font-size:clamp(1.5rem,4.5vw,2.1rem);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw}
+.brand .eyebrow{color:color-mix(in srgb,var(--board-fg) 62%,transparent)}
+.status{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;padding:3px 8px;border-radius:3px;border:1px solid color-mix(in srgb,var(--board-fg) 30%,transparent);color:var(--board-fg);white-space:nowrap}
+.pill.warn{background:var(--warn);border-color:var(--warn);color:var(--board)}
+.pill.demo{background:var(--me);border-color:var(--me);color:var(--board)}
+.you{display:flex;align-items:center;gap:6px;font-size:.82rem;color:color-mix(in srgb,var(--board-fg) 70%,transparent)}
+.you select{background:transparent;color:var(--board-fg);border:1px solid color-mix(in srgb,var(--board-fg) 30%,transparent);border-radius:3px;padding:3px 6px;max-width:11em}
+.you select option{color:var(--text);background:var(--surface)}
+.tabs{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;margin-inline:-6px}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{font-family:var(--display);font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.04em;color:color-mix(in srgb,var(--board-fg) 60%,transparent);text-decoration:none;padding:6px 10px 8px;white-space:nowrap;border-bottom:3px solid transparent}
+.tabs a:hover{color:var(--board-fg)}
+.tabs a.on{color:var(--board-fg);border-bottom-color:var(--accent)}
+
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px}
+.view{display:flex;flex-direction:column;gap:36px}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sechead{display:flex;align-items:baseline;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;border-bottom:3px solid var(--ink);padding-bottom:6px}
+.sechead p{font-size:.86rem;color:var(--muted);max-width:60ch}
+.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--me-soft);border:1px solid var(--me);border-radius:6px;padding:10px 14px;font-size:.9rem}
+.banner.warn{background:var(--warn-soft);border-color:var(--warn)}
+.banner b{color:var(--ink)}
+
+/* buttons and fields */
+.btn{cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:4px;padding:7px 14px;font-weight:500;font-size:.9rem}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.small{padding:4px 10px;font-size:.82rem}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.78rem;color:var(--muted)}
+.field select,.field input,.field textarea{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 8px;color:var(--ink);min-width:0}
+.field textarea{resize:vertical;min-height:4.5em;font-size:.88rem}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:flex-end}
+
+/* headline figures */
+.verdict{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--line)}
+.verdict div{padding:12px 14px 12px 0;display:flex;flex-direction:column;gap:2px;min-width:0}
+.verdict div+div{padding-left:14px;border-left:1px solid var(--line)}
+.verdict b{font-family:var(--display);font-size:2.1rem;font-weight:600;line-height:1;color:var(--ink);overflow-wrap:anywhere}
+.verdict span{font-size:.8rem;color:var(--muted)}
+@media (max-width:640px){.verdict{grid-template-columns:repeat(2,minmax(0,1fr))}.verdict div:nth-child(3){padding-left:0;border-left:0}.verdict div:nth-child(n+3){border-top:1px solid var(--line)}}
+
+.youcard{display:grid;grid-template-columns:auto 1fr;gap:2px 18px;align-items:center;background:var(--me-soft);border:1px solid var(--me);border-radius:6px;padding:12px 16px}
+.youcard .big{font-family:var(--display);font-size:2.8rem;font-weight:700;line-height:1;color:var(--me);grid-row:span 2}
+.youcard b{color:var(--ink)}
+.youcard p{font-size:.9rem}
+
+/* tables */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:7px 10px;text-align:right;white-space:nowrap}
+th{font-family:var(--mono);font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);background:var(--surface)}
+th.l,td.l{text-align:left}
+tbody tr+tr td{border-top:1px solid var(--line)}
+tbody tr.me td{background:var(--me-soft)}
+tbody tr.me td:first-child{box-shadow:inset 3px 0 0 var(--me)}
+td.pos{font-family:var(--display);font-size:1.3rem;font-weight:700;color:var(--ink);width:2.4em}
+.who{display:flex;flex-direction:column;line-height:1.25}
+.who b{font-weight:500;color:var(--ink)}
+.who span{font-size:.76rem;color:var(--muted)}
+.mv{font-family:var(--mono);font-size:.78rem}
+.mv.up{color:var(--good)}.mv.down{color:var(--bad)}.mv.same{color:var(--muted)}
+.gw{display:inline-block;min-width:2.6em;text-align:center;padding:1px 6px;border-radius:3px;font-family:var(--mono)}
+.gw.above{background:var(--good-soft);color:var(--good)}
+.gw.below{background:var(--bad-soft);color:var(--bad)}
+.badge{font-family:var(--mono);font-size:.64rem;letter-spacing:.04em;padding:1px 5px;border-radius:3px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+.badge.flag{border-color:var(--warn);color:var(--warn)}
+th button{all:unset;cursor:pointer}
+th[aria-sort="descending"] button::after{content:" ▾"}
+th[aria-sort="ascending"] button::after{content:" ▴"}
+.legendrow{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+
+/* insight cards */
+.notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.notes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:540px){.notes{grid-template-columns:1fr}}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.note .stat{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.note .stat b{font-family:var(--display);font-size:2.5rem;font-weight:700;line-height:.95;color:var(--accent)}
+.note.luck .stat b,.note.world .stat b{color:var(--muted)}
+.note.cost .stat b{color:var(--bad)}
+.note .stat span{font-family:var(--mono);font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.note p{font-size:.87rem;color:var(--muted)}
+.tag{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* charts */
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.charts .wide{grid-column:1/-1}
+@media (max-width:760px){.charts{grid-template-columns:1fr}}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 14px 10px;display:flex;flex-direction:column;gap:6px;min-width:0;margin:0;position:relative}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.chart .cap{font-size:.82rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.76rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;border-radius:2px}
+svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
+svg .lbl{fill:var(--ink);font-family:var(--body);font-size:12px;font-weight:700}
+svg .bg-line{stroke:var(--faint);stroke-width:1.5;fill:none}
+svg .hit{stroke:transparent;stroke-width:12;fill:none;cursor:pointer}
+svg g.mgr:hover .bg-line{stroke:var(--ink);stroke-width:2.5}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-size:.76rem;padding:4px 8px;border-radius:4px;white-space:nowrap;transform:translate(-50%,-130%);z-index:2}
+
+/* gameweek */
+.podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:600px){.podium{grid-template-columns:1fr}}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.step:first-child{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.step .place{font-family:var(--mono);font-size:.7rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.step .score{font-family:var(--display);font-size:2.6rem;font-weight:700;color:var(--ink);line-height:1}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+@media (max-width:680px){.facts{grid-template-columns:1fr}}
+.fact{display:grid;grid-template-columns:9.5em 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.9rem;min-width:0}
+.fact dt{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.fact dd{margin:0;min-width:0}
+.fact dd b{color:var(--ink);font-weight:500}
+
+/* transfers */
+.move{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.move.lead{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.move .side{display:flex;flex-direction:column;gap:2px;min-width:0}
+.move .side.in{text-align:right}
+.move .nm{font-family:var(--display);font-size:1.5rem;font-weight:600;color:var(--ink);line-height:1.05}
+.move .meta{font-size:.78rem;color:var(--muted)}
+.move .gain{font-family:var(--mono);font-size:.82rem;color:var(--good);background:var(--good-soft);padding:3px 8px;border-radius:3px;white-space:nowrap}
+.move .fx{grid-column:1/-1;font-size:.8rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+@media (max-width:520px){.move{grid-template-columns:1fr}.move .side.in{text-align:left}.move .gain{justify-self:start}}
+.plan{border-left:4px solid var(--accent);padding:6px 0 6px 14px;font-size:1rem;color:var(--ink)}
+.plan.hold{border-left-color:var(--muted)}
+.plan.hit{border-left-color:var(--warn)}
+.runs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:680px){.runs{grid-template-columns:1fr}}
+.runs ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+.runs li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+.runs li span:last-child{color:var(--muted);text-align:right;min-width:0}
+.bar{height:6px;border-radius:2px;background:var(--sunk);overflow:hidden;width:64px;display:inline-block;vertical-align:middle}
+.bar i{display:block;height:100%;background:var(--accent)}
+
+/* write-ups */
+.writer{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.writer{grid-template-columns:1fr}}
+.writer .opts{display:flex;flex-direction:column;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.out{background:var(--surface);border:1px solid var(--line);border-radius:6px;min-height:240px;display:flex;flex-direction:column;min-width:0}
+.out-bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+.out-text{padding:16px 18px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.95rem;line-height:1.6;color:var(--ink);min-height:180px}
+.out-text.idle{color:var(--muted);font-style:italic}
+.check{padding:10px 14px;border-top:1px solid var(--line);font-size:.84rem}
+.check.ok{color:var(--good)}
+.check.flag{color:var(--warn)}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;padding:6px 10px;font-size:.85rem;flex:1;text-align:center;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* data */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;counter-reset:s}
+@media (max-width:760px){.steps{grid-template-columns:1fr}}
+.stepbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.stepbox h3::before{counter-increment:s;content:counter(s);font-family:var(--mono);font-size:.8rem;color:var(--on-accent);background:var(--accent);border-radius:50%;width:1.6em;height:1.6em;display:inline-grid;place-items:center;margin-right:8px;vertical-align:2px}
+.stepbox p{font-size:.88rem}
+code,.code{font-family:var(--mono);font-size:.82rem;background:var(--sunk);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+pre.code{display:block;padding:10px 12px;overflow-x:auto;white-space:pre;margin:0;max-height:320px}
+.drop{border:2px dashed var(--faint);border-radius:8px;padding:28px 16px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center;background:var(--surface);cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop b{font-family:var(--display);font-size:1.4rem;color:var(--ink);font-weight:600}
+.msg{font-size:.88rem}
+.msg.err{color:var(--bad)}.msg.ok{color:var(--good)}
+details summary{cursor:pointer;color:var(--accent);font-size:.88rem}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.88rem}
+/* insights */
+.posgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:820px){.posgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:440px){.posgrid{grid-template-columns:1fr}}
+.poscard{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.poscard .pn{font-family:var(--display);font-size:1.6rem;font-weight:700;color:var(--ink);line-height:1}
+.poscard dl{margin:0;display:grid;grid-template-columns:auto auto;gap:4px 10px;font-size:.84rem}
+.poscard dt{color:var(--muted)}
+.poscard dd{margin:0;text-align:right;color:var(--ink);font-family:var(--mono);font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.share{height:8px;border-radius:2px;background:var(--sunk);overflow:hidden}
+.share i{display:block;height:100%;background:var(--accent)}
+.fd{display:inline-block;min-width:3.6em;text-align:center;font-family:var(--mono);font-size:.72rem;padding:1px 5px;border-radius:3px;margin-right:3px}
+.fd.d1,.fd.d2{background:var(--good-soft);color:var(--good)}
+.fd.d3{background:var(--sunk);color:var(--muted)}
+.fd.d4,.fd.d5{background:var(--bad-soft);color:var(--bad)}
+.frm{font-family:var(--mono);font-size:.74rem;letter-spacing:.06em}
+.frm .W{color:var(--good)}.frm .L{color:var(--bad)}.frm .D{color:var(--muted)}
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:720px){.vs{grid-template-columns:1fr}}
+.vs ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+.vs li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.vs li b{color:var(--ink);font-weight:500}
+.vs li span{font-family:var(--mono);font-size:.8rem;color:var(--muted);white-space:nowrap}
+.over{color:var(--good)}.under{color:var(--bad)}
+
+/* newsletter */
+.nl{max-width:820px;display:flex;flex-direction:column;gap:18px}
+.nl-head{background:var(--fpl-purple);color:var(--fpl-on-purple);border-radius:6px 6px 0 0;padding:26px 18px 20px;text-align:center;display:flex;flex-direction:column;gap:4px}
+.nl-head b{font-family:var(--display);font-size:clamp(1.6rem,5vw,2.3rem);line-height:1.05;text-transform:uppercase;letter-spacing:.02em;color:var(--fpl-on-purple)}
+.nl-head span{font-size:.8rem;color:var(--fpl-green);font-weight:500}
+.nl-box{border:1px solid var(--line);border-top:0;background:var(--surface);padding:18px 20px;display:flex;flex-direction:column;gap:10px;border-radius:0 0 6px 6px}
+.nl-box.solo{border-top:1px solid var(--line);border-radius:6px}
+.nl-box h3{font-family:var(--body);font-size:1rem;font-weight:700;margin-top:6px}
+.nl-box ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.nl-box p,.nl-box li{max-width:72ch}
+.nl-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:720px){.nl-grid{grid-template-columns:1fr}}
+.nl-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.nl-t .ban{background:var(--fpl-purple);color:var(--fpl-on-purple);font-family:var(--body);font-weight:700;padding:10px 12px;border-radius:4px 4px 0 0}
+.nl-t table{font-size:.8rem}
+.nl-t th,.nl-t td{white-space:normal;padding:6px 8px}
+.nl-t td.num,.nl-t th:last-child{white-space:nowrap}
+.nl-t th{background:var(--fpl-green);color:var(--fpl-on-green)}
+.nl-t td.sec{text-align:center;font-weight:700;text-decoration:underline;font-size:.72rem;letter-spacing:.03em;padding-top:10px;border-top:0}
+.nl-t tr.after td{border-top:0}
+.nl-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;margin-top:8px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+
+<div class="board">
+  <div class="board-in">
+    <div class="board-row">
+      <div class="brand"><h1 id="league-name">League Room</h1><span class="eyebrow" id="board-gw"></span></div>
+      <div class="status" id="status"></div>
+      <div class="you"><label for="league-pick" class="sr">League</label><select id="league-pick" hidden aria-label="League"></select><span class="msg" id="lg-msg"></span></div>
+      <div class="you"><label for="me">You</label><select id="me"><option value="">Pick your name</option></select></div>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <a href="#league" data-v="league">League</a><a href="#gameweek" data-v="gameweek">Gameweek</a><a href="#insights" data-v="insights">Insights</a><a href="#transfers" data-v="transfers">Transfers</a><a href="#newsletter" data-v="newsletter">Newsletter</a><a href="#write-ups" data-v="write-ups">Write-ups</a><a href="#data" data-v="data">Data</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="demo-banner" class="banner" hidden><span><b>This is an example league with made-up managers.</b> Load your own league to replace it.</span><a class="btn small" href="#data">Load my league</a></div>
+
+  <!-- LEAGUE -->
+  <div class="view" data-view="league">
+    <div class="verdict" id="verdict" aria-label="Headline figures"></div>
+    <div class="youcard" id="youcard" hidden></div>
+    <section>
+      <div class="sechead"><h2 id="table-title">The table</h2><p>Season totals after hits. The weekly score is shaded against that week's FPL global average.</p></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th class="l">Pos</th><th class="l">Move</th><th class="l">Manager</th><th id="th-gw">GW</th><th>Total</th><th>Behind 1st</th></tr></thead>
+        <tbody id="standings"></tbody>
+      </table></div>
+      <div class="legendrow"><span><span class="gw above">pts</span> above global average</span><span><span class="gw below">pts</span> below</span><span><span class="badge" style="margin:0">chip</span> chip played that week</span></div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Form over a span</h2>
+        <div class="controls">
+          <div class="field"><label for="span-from">From</label><select id="span-from"></select></div>
+          <div class="field"><label for="span-to">To</label><select id="span-to"></select></div>
+        </div>
+      </div>
+      <p class="muted" id="span-note" style="font-size:.86rem"></p>
+      <div class="notes" id="insights"></div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>The charts</h2><p id="chartnote"></p></div>
+      <div class="charts">
+        <figure class="chart wide"><h3>League position after each gameweek</h3><svg id="c-bump" role="img" aria-label="League position by gameweek"></svg><figcaption class="cap">Real league positions, ties shared, as FPL ranks them.</figcaption></figure>
+        <figure class="chart"><h3>League against the world</h3>
+          <div class="legend"><span><i style="background:var(--accent)"></i>League avg</span><span><i style="background:var(--ink)"></i>Global avg</span><span><i style="background:var(--accent-soft);height:9px"></i>League range</span><span id="you-leg"></span></div>
+          <svg id="c-week" role="img" aria-label="League and global average by gameweek"></svg><figcaption class="cap">Weekly scores before hits.</figcaption></figure>
+        <figure class="chart"><h3>Consistency against output</h3><svg id="c-scatter" role="img" aria-label="Average weekly score against standard deviation"></svg><figcaption class="cap">Right scores more a week; lower is steadier. Managers who missed a week are left out.</figcaption></figure>
+        <figure class="chart wide"><h3>Overall rank</h3><svg id="c-orank" role="img" aria-label="Overall FPL rank by gameweek"></svg><figcaption class="cap">Rank among all FPL managers, log scale, better rank higher.</figcaption></figure>
+      </div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Squad sheet</h2><p id="sheet-note">Click a column to sort.</p></div>
+      <div class="tablewrap"><table id="sheet">
+        <thead><tr>
+          <th class="l" data-k="rank" aria-sort="ascending"><button type="button">Pos</button></th>
+          <th class="l" data-k="name"><button type="button">Manager</button></th>
+          <th data-k="total"><button type="button">Span pts</button></th>
+          <th data-k="mean"><button type="button">Per wk</button></th>
+          <th data-k="sd"><button type="button">Std dev</button></th>
+          <th data-k="best"><button type="button">Best</button></th>
+          <th data-k="worst"><button type="button">Worst</button></th>
+          <th data-k="beatG"><button type="button">Beat global</button></th>
+          <th data-k="bench"><button type="button">Bench</button></th>
+          <th data-k="hits"><button type="button">Hits</button></th>
+          <th data-k="tx"><button type="button">Transfers</button></th>
+          <th class="l">Chips</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <!-- GAMEWEEK -->
+  <div class="view" data-view="gameweek" hidden>
+    <div id="gw-final" class="banner warn" hidden><span><b>Not final yet.</b> Bonus points and substitutions can still change. Fetch again after the last match is settled.</span></div>
+    <section>
+      <div class="sechead"><h2 id="gw-title">Gameweek</h2><p id="gw-sub"></p></div>
+      <div class="podium" id="podium"></div>
+    </section>
+    <section>
+      <div class="sechead"><h2>What happened</h2><button class="btn small" type="button" data-write="weekly">Write this week's report</button></div>
+      <dl class="facts" id="gw-facts"></dl>
+    </section>
+    <section>
+      <div class="sechead"><h2>Every score</h2><p>Before hits, with the hit shown separately.</p></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th class="l">Manager</th><th>Score</th><th>Hit</th><th>vs global</th><th class="l">Captain</th><th>Transfers</th><th>Bench</th><th class="l">Chip</th></tr></thead>
+        <tbody id="gw-scores"></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <!-- INSIGHTS -->
+  <div class="view" data-view="insights" hidden>
+    <p class="muted" id="ins-empty" hidden>Season stats arrive with the next automatic fetch.</p>
+    <div class="view" id="ins-body" style="gap:36px">
+      <section>
+        <div class="sechead"><h2>The league against reality</h2><p>What the Premier League is producing set against what Aberdeen plc's squads hold.</p></div>
+        <div class="vs">
+          <div><h3>Scoring, but barely owned here</h3><p class="muted" style="font-size:.82rem;margin-bottom:6px">Among the top 40 scorers, owned by under 15% of the league.</p><ol id="ins-missing"></ol></div>
+          <div><h3>The league's favourites, by value</h3><p class="muted" style="font-size:.82rem;margin-bottom:6px">Owned by at least a quarter of the league, lowest points per £m first.</p><ol id="ins-favs"></ol></div>
+        </div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Positions</h2><p>Regulars are players with at least half the available minutes.</p></div>
+        <div class="posgrid" id="ins-pos"></div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Teams</h2><p>The real table, with FPL points produced and the next three fixtures by FPL difficulty.</p></div>
+        <div class="tablewrap"><table id="ins-teams">
+          <thead><tr>
+            <th class="l" data-k="rank"><button type="button">#</button></th><th class="l" data-k="name"><button type="button">Club</button></th>
+            <th data-k="p"><button type="button">P</button></th><th data-k="w"><button type="button">W</button></th><th data-k="d"><button type="button">D</button></th><th data-k="l"><button type="button">L</button></th>
+            <th data-k="gf"><button type="button">GF</button></th><th data-k="ga"><button type="button">GA</button></th><th data-k="gd"><button type="button">GD</button></th><th data-k="cs"><button type="button">CS</button></th>
+            <th data-k="pts"><button type="button">Pts</button></th><th class="l">Form</th><th data-k="fplPts"><button type="button">FPL pts</button></th><th class="l">Top FPL player</th><th data-k="leagueOwn"><button type="button">League picks</button></th><th class="l">Next 3</th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Players</h2>
+          <div class="controls"><div class="seg" id="ins-posf"><button type="button" data-p="">All</button><button type="button" data-p="GKP">GKP</button><button type="button" data-p="DEF">DEF</button><button type="button" data-p="MID">MID</button><button type="button" data-p="FWD">FWD</button></div>
+          <div class="field"><label for="ins-min">Minimum minutes</label><select id="ins-min"><option value="0">Any</option><option value="270" selected>270</option><option value="450">450</option></select></div></div>
+        </div>
+        <p class="muted" style="font-size:.82rem">G+A vs xGI: positive means scoring and assisting more than the chances suggest, which tends not to last; negative means due a return. Click a column to sort. Top 40 shown.</p>
+        <div class="tablewrap"><table id="ins-players">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Player</button></th><th class="l">Pos</th>
+            <th data-k="cost"><button type="button">£m</button></th><th data-k="pts" aria-sort="descending"><button type="button">Pts</button></th><th data-k="ppm"><button type="button">Pts/£m</button></th>
+            <th data-k="per90"><button type="button">Pts/90</button></th><th data-k="form"><button type="button">Form</button></th><th data-k="mins"><button type="button">Mins</button></th>
+            <th data-k="goals"><button type="button">G</button></th><th data-k="assists"><button type="button">A</button></th><th data-k="xgi"><button type="button">xGI</button></th><th data-k="gaVsXgi"><button type="button">G+A vs xGI</button></th>
+            <th data-k="cs"><button type="button">CS</button></th><th data-k="bonus"><button type="button">Bonus</button></th><th data-k="dc"><button type="button">Def con</button></th><th data-k="leagueOwnPct"><button type="button">League</button></th><th data-k="globalOwn"><button type="button">Global</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- TRANSFERS -->
+  <div class="view" data-view="transfers" hidden>
+    <section>
+      <div class="sechead"><h2>Transfer planner</h2><p>A simple, explainable model. Treat it as a second opinion, not a verdict.</p></div>
+      <div class="controls">
+        <div class="field"><label for="adv-who">Whose team</label><select id="adv-who"></select></div>
+        <div class="field"><label>Look ahead</label><div class="seg" id="adv-h"><button type="button" data-h="3">3 GWs</button><button type="button" data-h="5">5 GWs</button><button type="button" data-h="8">8 GWs</button></div></div>
+        <div class="field"><label for="adv-ft">Free transfers</label><input id="adv-ft" type="number" min="0" max="5" step="1" style="width:5.5em"></div>
+        <button class="btn small" type="button" data-write="advice">Explain it in a write-up</button>
+      </div>
+      <p class="muted" id="adv-ft-note" style="font-size:.82rem"></p>
+    </section>
+    <div id="adv-body" class="view" style="gap:28px"></div>
+  </div>
+
+  <!-- NEWSLETTER -->
+  <div class="view" data-view="newsletter" hidden>
+    <section>
+      <div class="sechead"><h2>Newsletter</h2><p>Built automatically the morning after each gameweek is final, in the same layout as your Word issues.</p></div>
+      <div class="nl-actions"><button class="btn primary" type="button" id="nl-save" hidden>Save the Word file</button><span class="msg" id="nl-msg"></span></div>
+      <div id="nl-body"><p class="muted">No newsletter yet. The first one appears here after the daily task has run for a finished gameweek.</p></div>
+    </section>
+  </div>
+
+  <!-- WRITE-UPS -->
+  <div class="view" data-view="write-ups" hidden>
+    <section id="auto-wrap" hidden>
+      <div class="sechead"><h2 id="auto-title">This week's report</h2><p id="auto-sub"></p></div>
+      <div class="out">
+        <div class="out-bar"><span class="eyebrow" id="auto-label"></span><button class="btn small" type="button" id="auto-copy">Copy</button></div>
+        <div class="out-text" id="auto-text"></div>
+        <div class="check" id="auto-check" hidden></div>
+      </div>
+    </section>
+    <section>
+      <div class="sechead"><h2>Write-ups</h2><p>Claude writes from the numbers on this page, in the voice you pick. Every number it uses is then checked against that data.</p></div>
+      <div class="writer">
+        <div class="opts">
+          <div class="field"><label>What to write</label><div class="seg" id="w-kind"><button type="button" data-k="weekly">Weekly</button><button type="button" data-k="trend">Review</button><button type="button" data-k="advice">Transfers</button></div></div>
+          <p class="muted" id="w-kind-note" style="font-size:.8rem"></p>
+          <div class="field"><label for="w-persona">Voice</label><select id="w-persona">
+            <option value="banter">Casual banter bot</option><option value="pundit">Serious sports pundit</option><option value="manager">Manager under pressure</option><option value="plain">Plain and friendly</option><option value="custom">My own voice…</option>
+          </select></div>
+          <div class="field" id="w-custom-wrap" hidden><label for="w-custom">Describe the voice</label><textarea id="w-custom" rows="5" placeholder="Who is talking, how they sound, what they care about, emoji rules."></textarea></div>
+          <div class="field"><label for="w-fav">Running joke about</label><select id="w-fav"><option value="">Nobody</option></select></div>
+          <div class="field"><label for="w-dest">Going to</label><select id="w-dest"><option value="whatsapp">WhatsApp group</option><option value="teams">Teams or Slack</option><option value="me">Just me</option></select></div>
+          <div class="field"><label for="w-extra">Anything to add</label><textarea id="w-extra" rows="3" placeholder="Context the data can't know: a rivalry, a forfeit, real football news for the manager voice."></textarea></div>
+          <button class="btn primary" type="button" id="w-go">Write it</button>
+          <p class="msg" id="w-msg"></p>
+        </div>
+        <div class="out">
+          <div class="out-bar"><span class="eyebrow" id="w-label">Nothing written yet</span><span style="display:flex;gap:8px"><button class="btn small" type="button" id="w-stop" hidden>Stop</button><button class="btn small" type="button" id="w-copy" disabled>Copy</button></span></div>
+          <div class="out-text idle" id="w-out">Pick what to write and a voice, then press Write it.</div>
+          <div class="check" id="w-check" hidden></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- DATA -->
+  <div class="view" data-view="data" hidden>
+    <section>
+      <div class="sechead"><h2>Load your league</h2><p>With the automatic GitHub fetch set up, this page updates itself every morning and nothing here is needed. This is the manual way, for a one-off or if the automatic fetch fails.</p></div>
+      <div class="steps">
+        <div class="stepbox"><h3>Get the script</h3><p>One Python file, nothing to install. Needs Python 3.9 or newer.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="dl-script" hidden>Save fpl_fetch.py</button><button class="btn small" type="button" id="copy-script">Copy the code</button></div><details><summary>Show the code</summary><pre class="code" id="script-view"></pre></details></div>
+        <div class="stepbox"><h3>Run it</h3><p>In a terminal, in the folder with the script. Your league id is the number in the league's address on the FPL site, and it changes every season.</p><code>python3 fpl_fetch.py 123456</code><p class="muted" style="font-size:.82rem">On Windows use <code>py</code>. Best on Tuesday morning, once Monday's bonus points are final.</p></div>
+        <div class="stepbox"><h3>Drop the file here</h3><p>It writes <code>fpl_bundle.json</code>. Drop it below or pick it. It's saved to your account, so your phone sees it too.</p></div>
+      </div>
+      <label class="drop" id="drop" for="file"><b>Drop fpl_bundle.json</b><span class="muted">or click to choose it</span><input type="file" id="file" accept=".json,application/json" hidden></label>
+      <p class="msg" id="load-msg" role="status"></p>
+    </section>
+    <section>
+      <div class="sechead"><h2>What's loaded</h2></div>
+      <p id="loaded-info" class="muted"></p>
+      <div class="confirm"><button class="btn small" type="button" id="use-demo">Show the example league</button><button class="btn small" type="button" id="clear">Remove my league from this page</button>
+        <span class="confirm" id="clear-confirm" hidden><span id="clear-q"></span><button class="btn small" type="button" id="clear-yes">Remove</button><button class="btn small" type="button" id="clear-no">Keep it</button></span></div>
+    </section>
+  </div>
+
+  <footer id="foot">Data from the public FPL API via your own computer. Scores before hits are compared with the FPL global average; totals and positions are after hits. Std dev is the sample standard deviation of weekly scores after hits.</footer>
+</div>
+
+<script type="text/plain" id="t-rules">
+Rules for every answer
+- Use only numbers that appear in the DATA. Never estimate a score, invent a transfer or name someone who is not in the league. If a field is empty or null, say nothing about it.
+- Judge every weekly score against the FPL global average for that gameweek. The league average is context, not the benchmark.
+- Weekly scores are before transfer hits; totals, ranks and gaps are after hits. When a manager took a hit, give both, for example "48, or 44 after the hit".
+- Bench points and an armband that moved to the vice-captain are luck, not skill. Say so.
+- Fact-check before you answer: find every number you wrote in the DATA and recompute every comparison ("most", "only", "more than", "biggest"). Fix anything that does not match.
+- Never use tables or markdown headings.
+</script>
+<script type="text/plain" id="p-banter">
+Persona: Casual Banter Bot
+You are the resident wind-up merchant of an FPL mini-league.
+Voice: informal, quick, playful. You are the person in the group chat who notices the funny detail everyone else missed. Short sentences. Land the joke and move on.
+What you care about: drama over tactics. Rivalries, near-misses, someone whose captain blanked, a manager who took a -8 hit and went backwards. You treat the mini-league like a soap opera and you know the plot.
+Rules:
+- Punch up, not down. Tease the leaders hardest; be gentle with whoever is bottom: a light dig, not a pile-on.
+- Every joke must be anchored to a real number from the data. A joke about a transfer that did not happen is just wrong.
+- Emojis are welcome and should carry meaning (🥇 🚀 🤦 🤯 😂 🧊). Two or three per section, not per sentence.
+Signature moves:
+- Give the week a name in the first line ("The Week Of The Empty Bench").
+- Award one made-up trophy, named after what happened.
+- Close with a one-line prediction for next week that you can be held to.
+</script>
+<script type="text/plain" id="p-pundit">
+Persona: Serious Sports Pundit
+You are a football analyst in the mould of a studio pundit, covering an FPL mini-league as though it were a title race.
+Voice: measured, tactical, data-led. You use the language of the game naturally ("took his chances", "a squad stretched thin"). You never sound like a spreadsheet, but every claim traces back to a figure.
+What you care about: process over outcome. A manager who consistently beats the global average is doing something right even in mid-table. A manager riding one lucky captaincy is a story about to go wrong. Consistency, squad depth, and whether an approach is repeatable.
+Rules:
+- Emojis sparingly and professionally (⚽ 🎯 📊), no more than three.
+- Always contextualise against the FPL global average.
+- Distinguish luck from skill out loud.
+FAVOURITE: If a favourite manager is named, they are your favourite subject and your affection takes the form of relentless backhanded praise: every risk they take is the mark of a manager operating at a different level, and their position is the stick you beat everyone else with. If they made an obvious mistake, be encouraging anyway. Check the table for where they actually sit before you write: never claim a lead they do not have.
+Signature moves:
+- Open with the single most interesting decision of the period.
+- Identify one manager whose underlying process deserves more credit than their position suggests.
+- Close with where the table is heading if form holds, and say plainly that form does not usually hold.
+</script>
+<script type="text/plain" id="p-manager">
+Persona: The Manager Under Pressure
+You are a top-flight football manager in the middle of a crisis, moonlighting as the analyst for an FPL mini-league. You are in a relegation fight, asked about your future in every press conference, and out of patience with players who cannot do the basics.
+If the extra context names a real manager and their current crisis, adopt that situation and use it. Otherwise stay a nameless manager and invent nothing about real people.
+Voice: intense, exasperated, darkly funny about your own situation. Short, punched sentences. Always one bad result from the end.
+Your FPL philosophy: the basics matter (a player out of form gets taken out); ruthlessness is required (take the hit, no loyalty to deadwood); preparation is everything (bad transfers and benched points are the same failure: nobody checked the conditions).
+Mandatory bits, each once, worded differently every time:
+1. FAVOURITE: Only if a favourite manager is named. They are the yardstick. Find them in the table first. Riding high: anyone above them earns awed praise. Mid-table or worse: the yardstick has slipped and you take it personally. Never claim they dominate unless the table says so.
+2. The relegation roast: find who is bottom. Ask them whether they are having a worse season than your club.
+3. The slip: when you see a bad transfer or plain negligence, say people are slipping around like the pitch is an ice rink and tell them to check their studs.
+Emojis: 😡 ⛸️ 🧤 ⬇️ 🤦 as punctuation for anger, not decoration.
+Be savage about decisions, never about people. Every accusation is backed by a real number.
+</script>
+<script type="text/plain" id="p-plain">
+Persona: plain and friendly. Write like a well-informed friend summarising the league. Clear, warm, no gimmicks, at most two emojis.
+</script>
+<script type="text/plain" id="fetch-src">__FETCH_SRC__</script>
+<script>
+__CORE_JS__
+</script>
+<script>
+__UI_JS__
+</script>
