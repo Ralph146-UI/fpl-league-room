@@ -6,7 +6,7 @@
    and every word from its written columns. Nothing is calculated here.
 
    Built for pasting into Outlook (desktop, web), Gmail and phones:
-   one 640px column of plain tables, every style inline, no CSS classes,
+   a 640px layout of plain tables (two columns in the middle section), every style inline, no CSS classes,
    no flex or grid, bgcolor attributes as well as background styles (Outlook desktop
    ignores some CSS), and a system font so it looks the same everywhere.
 */
@@ -47,6 +47,13 @@ const EMAIL = (() => {
     return tbl(`<tr>${th}</tr>${body}`, `border:1px solid ${LINE};`);
   }
 
+  /* Two side-by-side cells of a plain table: the one two-column layout that survives a paste into Outlook desktop. */
+  const COL = 310, GUT = 20;
+  const twoColumns = (left, right) => `<table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%"><tr>` +
+    `<td width="${COL}" valign="top" style="width:${COL}px;vertical-align:top">${left}</td>` +
+    `<td width="${GUT}" style="width:${GUT}px;font-size:1px;line-height:1px">&nbsp;</td>` +
+    `<td width="${COL}" valign="top" style="width:${COL}px;vertical-align:top">${right}</td></tr></table>`;
+
   function sections(F) {
     const H = F.highlights || {}, P = F.player_highlights || {};
     const managers = [["Manager of the week", H.manager_of_the_week], ["Biggest rise", H.biggest_rise], ["Biggest fall", H.biggest_fall],
@@ -78,11 +85,14 @@ const EMAIL = (() => {
         heading("The Managers Column") + bullets(Cl.managers_column || []) +
         heading("The Transfer & Chip Column") + bullets(Cl.transfer_chip_column || [])),
       gap(20),
-      banner("Manager Highlights"), `<tr><td>${highlightTable(["Team", "Manager", "Pts/#"], X.managers)}</td></tr>`, gap(),
-      banner("Player Highlights"), `<tr><td>${highlightTable(["Player", "#"], X.players)}</td></tr>`, gap(),
-      banner("Top 5 Transfers IN"), `<tr><td>${dataTable(["Player", "Team", "Transfers In"], X.tin)}</td></tr>`, gap(),
-      banner("Top 5 Transfers OUT"), `<tr><td>${dataTable(["Player", "Team", "Transfers Out"], X.tout)}</td></tr>`, gap(),
-      banner(`Top 10 Player Ownership (GW${F.gameweek})`), `<tr><td>${dataTable(["Player", "Team", "Ownership"], X.own)}</td></tr>`, gap(20),
+      /* the middle section in two columns, as in the Word issues: highlights left, transfers and ownership right */
+      `<tr><td>${twoColumns(
+        tbl(banner("Manager Highlights") + `<tr><td>${highlightTable(["Team", "Manager", "Pts/#"], X.managers)}</td></tr>` + gap() +
+            banner("Player Highlights") + `<tr><td>${highlightTable(["Player", "#"], X.players)}</td></tr>`),
+        tbl(banner("Top 5 Transfers IN") + `<tr><td>${dataTable(["Player", "Team", "Transfers In"], X.tin)}</td></tr>` + gap() +
+            banner("Top 5 Transfers OUT") + `<tr><td>${dataTable(["Player", "Team", "Transfers Out"], X.tout)}</td></tr>` + gap() +
+            banner(`Top 10 Player Ownership (GW${F.gameweek})`) + `<tr><td>${dataTable(["Player", "Team", "Ownership"], X.own)}</td></tr>`))}</td></tr>`,
+      gap(20),
       /* players column */
       banner("Players Column"),
       box((Cl.players_column || []).map((t) => `<p style="margin:0 0 10px;font-family:${FONT};font-size:14px;line-height:1.5;color:${INK}">${rich(t)}</p>`).join("")),

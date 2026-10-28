@@ -42,7 +42,7 @@ FPL public API ──► GitHub Action (06:17 daily) ──► private repo: dat
 | Repository | `github.com/Ralph146-UI/fpl-league-room` (private) | The hub: data, settings, code, voices, newsletters. Claude's GitHub app has access to this repo only. |
 | Shared logic | `tools/core.js` | **Every calculation, defined once**, used by both the page and the task: tables, movers, span stats, insights, gameweek analysis, transfer model, newsletter figures, player/team insights, number check, example league. |
 | Task helpers | `tools/payload.js` | `info`, `weekly`, `newsletter`, `split`, `leagues`, `check`. |
-| Email copy | `tools/email.js` | The newsletter as email-safe HTML (one 640px column of inline-styled tables, Arial) plus a plain-text version, for pasting into Outlook or Gmail. Layout only: same FIGURES and columns as the Word file. |
+| Email copy | `tools/email.js` | The newsletter as email-safe HTML (640px of inline-styled tables, two columns in the middle section as in the Word issue, Arial) plus a plain-text version, for pasting into Outlook or Gmail. Layout only: same FIGURES and columns as the Word file. |
 | Newsletter | `tools/newsletter.js`, `tools/theme_font.py`, `tools/pack.js` | Builds the Word file in the GW7 layout (A4, purple `#37003C`, green `#00FF87`, Aptos (Body) via theme fonts), then packs figures, columns and .docx for the page. |
 | Voices | `personas/` | `rules.md` (applies to every write-up), `banter.md`, `pundit.md`, `manager.md`, `plain.md`, `newsletter.md` (newsletter voice with the hand-written GW7 issue as style example). |
 | Scheduled task | Claude, id `trig_016FNgx9PT5WW6cE9eZQgXSx` | Daily 07:43 Europe/London, cloud, automatic approval, push notifications. Full prompt: `docs/scheduled-task-prompt.md`. |
@@ -141,4 +141,4 @@ Later, if wanted: news context from the Premier League's "The Scout" (summarised
 | --- | --- | --- |
 | 1.0 | 28 Oct 2026 | Live system: daily fetch, page with seven tabs, two leagues, banter report, Word newsletter, Insights tab, number checking. |
 | 1.1 | 28 Oct 2026 | Main league shared (`shared/` area, owner-only writes); report, newsletter and other league stay private. Newsletter tone picker (four tones, preview, one-off rebuild). Task retries a failed newsletter push. |
-| 1.2 | 28 Oct 2026 | Copy for email on the Newsletter tab (owner only): email-safe tables, phone-friendly, plain-text fallback; copies a tone preview too. Save as .html as a fallback. |
+| 1.2 | 28 Oct 2026 | Copy for email on the Newsletter tab (owner only): email-safe tables, plain-text fallback; copies a tone preview too. Save as .html as a fallback. |
