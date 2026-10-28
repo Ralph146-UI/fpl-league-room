@@ -193,6 +193,7 @@ def main():
     live = get(f"/event/{gw}/live/") or {"elements": []}
     fixtures = get("/fixtures/?future=1") or []
     gw_fixtures = get(f"/fixtures/?event={gw}") or []
+    all_fixtures = get("/fixtures/") or []
 
     out = HERE / args.out
     done = sorted(e["id"] for e in events if e.get("finished") and e.get("data_checked") and e["id"] <= gw)
@@ -219,6 +220,15 @@ def main():
                       float(e["points_per_game"] or 0), e["minutes"], e["status"], e.get("chance_of_playing_next_round"),
                       e.get("news") or "", float(e["selected_by_percent"] or 0), e["total_points"], e.get("transfers_in_event", 0)]
                      for e in bs["elements"]],
+        # season stats per player: [id, goals, assists, clean_sheets, goals_conceded, bonus, xG, xA, xGI, starts, saves, bps, defensive_contribution]
+        "stats": [[e["id"], e.get("goals_scored", 0), e.get("assists", 0), e.get("clean_sheets", 0), e.get("goals_conceded", 0),
+                   e.get("bonus", 0), float(e.get("expected_goals") or 0), float(e.get("expected_assists") or 0),
+                   float(e.get("expected_goal_involvements") or 0), e.get("starts", 0), e.get("saves", 0), e.get("bps", 0),
+                   e.get("defensive_contribution", 0)]
+                  for e in bs["elements"] if e.get("minutes")],
+        # every finished match this season: [event, home, away, home goals, away goals]
+        "results": [[f["event"], f["team_h"], f["team_a"], f["team_h_score"], f["team_a_score"]]
+                    for f in all_fixtures if f.get("finished") and f.get("event")],
         "fixtures": [[f["event"], f["team_h"], f["team_a"], f["team_h_difficulty"], f["team_a_difficulty"]]
                      for f in fixtures if f.get("event")],
         # [points, minutes, goals, assists, bonus, clean_sheet]
