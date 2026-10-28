@@ -1,7 +1,7 @@
 {
- "run": "2026-10-28T16:00+00:00",
+ "run": "2026-10-28T16:03+00:00",
  "leagues": {
   "554519": "ok",
-  "782455": "Stopped: league 782455 was not found. Check the id (it changes every season; head-to-head leagues aren't supported)."
+  "554564": "ok"
  }
 }
