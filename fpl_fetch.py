@@ -252,17 +252,23 @@ def main():
     if args.gw:
         leagues = leagues[:1]  # a past gameweek is only fetched for the main league
     data_dir = "data/" if (HERE / "data").is_dir() else ""
+    status = {"run": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"), "leagues": {}}
     for i, lid in enumerate(leagues):
         out = args.out if (args.out and i == 0) else (f"{data_dir}fpl_bundle.json" if i == 0 else f"{data_dir}fpl_bundle_{lid}.json")
         one = argparse.Namespace(league_id=lid, gw=args.gw, out=out)
         if i == 0:
             run_one(one)
+            status["leagues"][str(lid)] = "ok"
         else:
             # A problem with an extra league must not stop the main one being saved.
             try:
                 run_one(one)
+                status["leagues"][str(lid)] = "ok"
             except SystemExit as e:
                 print(f"Skipped league {lid}: {e}")
+                status["leagues"][str(lid)] = str(e).strip()
+    if data_dir and not args.gw:
+        (HERE / data_dir / "fetch_status.json").write_text(json.dumps(status, indent=1))
 
 
 if __name__ == "__main__":
