@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Version** | 1.0 |
+| **Version** | 1.1 |
 | **Date** | 28 October 2026 |
 | **Saved as** | Branch `v1.0` on GitHub, frozen at this version. To go back: open the branch on GitHub, or `git checkout v1.0`. |
 | **State** | Live. Gameweek 8 complete; report and newsletter produced automatically. |
@@ -47,23 +47,30 @@ FPL public API ──► GitHub Action (06:17 daily) ──► private repo: dat
 | Scheduled task | Claude, id `trig_016FNgx9PT5WW6cE9eZQgXSx` | Daily 07:43 Europe/London, cloud, automatic approval, push notifications. Full prompt: `docs/scheduled-task-prompt.md`. |
 | Page | Claude artifact `https://claude.ai/artifact/9qRQFge74rDATu7jrbkEiw`, pinned | Single HTML file. Source in `page/` (`page.html`, `ui.js`; `build.py` inlines `fpl_fetch.py`, `tools/core.js` and `ui.js`). Capabilities: `db`, `user`, `sample`, `downloads`. |
 
-### Page storage (artifact database, owner's private area `data/users/<id>/`)
+### Page storage (artifact database)
 
-| Document | Written by | Contents |
-| --- | --- | --- |
-| `players` | task | Shared player data: elements, teams, fixtures, events (from the main bundle) |
-| `league` | task | Main league: managers, history, picks, live points, stats, results |
-| `league_<id>` | task | Each other league's league part |
-| `leagues` | task | List for the league picker: id, name, managers, primary, fetched |
-| `report` | task | Latest banter report: gw, text, voice, number-check line |
-| `newsletter` | task | Latest newsletter: figures JSON, columns JSON, .docx as base64, check line |
-| `status` | task | Stale-data alert memory |
+Two areas. **Shared** (`shared/`): the main league only, readable by everyone the page is shared with, writable only by the owner. **Private** (`data/users/<id>/`): everything else, readable only by the owner. Access rules are declared when the page is published: root `read: view, write: owner`; `data/users/{self}` `write: interact`.
+
+| Document | Area | Written by | Contents |
+| --- | --- | --- | --- |
+| `players` | shared | task | Player data: elements, teams, fixtures, events (from the main bundle) |
+| `league` | shared | task | Main league: managers, history, picks, live points, stats, results |
+| `league_<id>` | private | task | Each other league's league part |
+| `leagues` | private | task | List for the league picker: id, name, managers, primary, fetched |
+| `report` | private | task | Latest banter report: gw, text, voice, number-check line |
+| `newsletter` | private | task | Latest newsletter: figures JSON, columns JSON, .docx as base64, check line |
+| `status` | private | task | Stale-data alert memory |
+| `settings` | private | page (owner) | Newsletter tone (`newsletter_tone`) and a one-off rebuild flag (`redo_gw`), read by the task |
+
+The owner's older private `league` and `players` docs (and a file dropped on the Data tab) still load; the page uses whichever copy is newer.
 
 Each document must stay under 256 KB; `payload.js` refuses anything over 240 KB.
 
 ### Page tabs
 
-League (table, form over a span, four charts, squad sheet) · Gameweek (podium, facts, every score) · Insights (league vs reality, positions, teams, players) · Transfers (planner) · Newsletter (main league only; Word download) · Write-ups (on-demand reports in five voices, run on the viewer's Claude usage) · Data (manual load and fetch script).
+League (table, form over a span, four charts, squad sheet) · Gameweek (podium, facts, every score) · Insights (league vs reality, positions, teams, players) · Transfers (planner) · Newsletter (main league only; Word download; owner-only tone picker with preview) · Write-ups (on-demand reports in five voices, run on the viewer's Claude usage) · Data (manual load and fetch script).
+
+**Sharing.** Viewers see the main league's data on every tab. The banter report, newsletter, tone picker and other leagues are private to the owner; shared viewers see a note instead. Viewers need a Claude account, and their own write-ups run on their own usage.
 
 A non-main league switches the accent to blue and shows "League N of M". "You" and the running-joke manager are remembered per league in browser storage.
 
@@ -83,6 +90,7 @@ A non-main league switches the accent to blue and shows "League N of M". "You" a
 | Totals and positions | FPL season totals, after hits |
 | Weekly score | Before hits; hits shown separately |
 | Newsletter average and median | After hits (matches the hand-made issues) |
+| Newsletter tone | `personas/newsletter-tones.json` (dry, warm, banter, straight); the guide replaces the voice, every rule in `newsletter.md` still applies |
 | Benchmark | FPL global average for that gameweek (never the league average) |
 | Consistency | Sample standard deviation of weekly scores after hits |
 | Rank movement | FPL's own `rank`/`last_rank` for the current gameweek (FPL splits ties); shared ranks from totals for history |
@@ -108,10 +116,10 @@ To rebuild the page: `python3 page/build.py`, then publish `page/fpl-league-room
 ## 7. Known issues and limits
 
 - FPL can block cloud servers. Fallback: run `python3 fpl_fetch.py` locally and drop the file on the page's Data tab.
-- The task's own push of the newsletter .docx failed once (GW8). The page and phone copies were unaffected and the file was added by hand. Watch on GW9.
+- The task's own push of the newsletter .docx failed once (GW8). The page and phone copies were unaffected and the file was added by hand. Since 1.1 the task retries once and reports a second failure. Watch on GW9.
 - The ArtifactData tool may refuse writes from an interactive session without approval. Firing the scheduled task is the reliable way to reload data.
 - The transfer model is simple (form, minutes, fixture difficulty). No xG, rotation or price changes.
-- The page is private. Sharing requires viewers signed in to Claude, and the data is currently in the owner's private area, so shared viewers would see the example league.
+- Sharing requires viewers signed in to Claude. Since 1.1 they see the main league; the other league, report and newsletter stay private.
 
 ## 8. Roadmap (agreed, not built)
 
@@ -131,3 +139,4 @@ Later, if wanted: news context from the Premier League's "The Scout" (summarised
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.0 | 28 Oct 2026 | Live system: daily fetch, page with seven tabs, two leagues, banter report, Word newsletter, Insights tab, number checking. |
+| 1.1 | 28 Oct 2026 | Main league shared (`shared/` area, owner-only writes); report, newsletter and other league stay private. Newsletter tone picker (four tones, preview, one-off rebuild). Task retries a failed newsletter push. |

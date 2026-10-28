@@ -1,0 +1,22 @@
+{
+  "dry": {
+    "label": "Dry (house style)",
+    "summary": "Deadpan, faintly bureaucratic wit. The voice of the hand-written issues.",
+    "guide": "Keep the house voice exactly as described in the Voice section."
+  },
+  "warm": {
+    "label": "Warm",
+    "summary": "Friendly and generous. Celebrates good weeks, consoles bad ones, light humour.",
+    "guide": "Write warmly, like a well-liked club secretary. Praise good weeks generously and console bad ones kindly. Humour is light and affectionate: at most one gentle joke per bullet. Still no emojis, no exclamation marks."
+  },
+  "banter": {
+    "label": "Banter",
+    "summary": "Cheekier and sharper. More jokes, decisions mocked with relish.",
+    "guide": "Turn the wit up: cheeky, sharper and more frequent jokes, the tone of a lively group chat. Mock bad decisions with relish (captaincy calls, hits, benched hauls), and give the winners a little grief too. Mild British slang is fine; no swearing, no emojis, at most one exclamation mark in the whole issue. Tease the decision, never the person: nothing about anyone's looks, job, intelligence or life outside FPL."
+  },
+  "straight": {
+    "label": "Straight",
+    "summary": "Facts only, no jokes. Short and clear.",
+    "guide": "No jokes and no dry lines: report the facts plainly in short, clear sentences. Keep every point the four parts ask for."
+  }
+}

@@ -275,6 +275,12 @@ details summary{cursor:pointer;color:var(--accent);font-size:.88rem}
 .nl-t td.sec{text-align:center;font-weight:700;text-decoration:underline;font-size:.72rem;letter-spacing:.03em;padding-top:10px;border-top:0}
 .nl-t tr.after td{border-top:0}
 .nl-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.nl-tone{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.nl-tone-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.nl-tone-row .field{min-width:12em}
+.nl-tone-row p{flex:1 1 16em;margin:0;font-size:.86rem}
+.nl-redo{display:flex;gap:6px;align-items:center;font-size:.84rem}
+.nl-preview{border:2px dashed var(--fpl-green);border-radius:8px;padding:8px}
 footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;margin-top:8px}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
@@ -436,6 +442,20 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
   <div class="view" data-view="newsletter" hidden>
     <section>
       <div class="sechead"><h2>Newsletter</h2><p>Built automatically the morning after each gameweek is final, in the same layout as your Word issues.</p></div>
+      <div class="nl-tone" id="nl-tone" hidden>
+        <div class="nl-tone-row">
+          <div class="field"><label for="nl-tone-sel">Tone</label><select id="nl-tone-sel"></select></div>
+          <p class="muted" id="nl-tone-desc"></p>
+        </div>
+        <div class="nl-actions">
+          <button class="btn" type="button" id="nl-tone-preview">Preview this issue in this tone</button>
+          <button class="btn" type="button" id="nl-tone-back" hidden>Back to the saved issue</button>
+          <button class="btn primary" type="button" id="nl-tone-save">Use this tone</button>
+          <label class="nl-redo"><input type="checkbox" id="nl-tone-redo"> <span id="nl-tone-redo-l">Also rebuild this week's issue at the next morning run</span></label>
+        </div>
+        <p class="msg" id="nl-tone-msg"></p>
+        <p class="muted" style="font-size:.8rem">Only you see this. The preview runs on your Claude usage and isn't saved; the morning task writes the real issue in the tone you choose and checks every number.</p>
+      </div>
       <div class="nl-actions"><button class="btn primary" type="button" id="nl-save" hidden>Save the Word file</button><span class="msg" id="nl-msg"></span></div>
       <div id="nl-body"><p class="muted">No newsletter yet. The first one appears here after the daily task has run for a finished gameweek.</p></div>
     </section>
@@ -554,6 +574,8 @@ Be savage about decisions, never about people. Every accusation is backed by a r
 Persona: plain and friendly. Write like a well-informed friend summarising the league. Clear, warm, no gimmicks, at most two emojis.
 </script>
 <script type="text/plain" id="fetch-src">__FETCH_SRC__</script>
+<script type="text/plain" id="t-nl-voice">__NL_VOICE__</script>
+<script type="application/json" id="t-nl-tones">__NL_TONES__</script>
 <script>
 __CORE_JS__
 </script>

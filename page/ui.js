@@ -18,6 +18,9 @@ try { PREF = JSON.parse(store.get("flr-prefs") || "{}") || {}; } catch (e) { PRE
 const savePrefs = () => store.set("flr-prefs", JSON.stringify(PREF));
 
 let B = null, S = null, CAP = {}, UID = null;
+/* Sharing: the main league's data lives in the shared collection "shared" (anyone the page is shared with reads it; only the owner writes).
+   The other leagues, the banter report, the newsletter and settings stay in the owner's private area. */
+let IS_OWNER = false, SRC = "", MAIN = null, SETTINGS = {};
 /* Leagues: the main one (with the report and newsletter) and any others. Each keeps its own data and its own "you". */
 let LEAGUES = [], PLAYERS = null, REPORT = null, NEWS = null;
 const leagueKey = () => String((B && B.league && B.league.id) || "demo");
@@ -77,29 +80,39 @@ async function initCaps() {
   CAP = { db, user, sample, downloads };
   if (downloads) $("#dl-script").hidden = false;
   if (!sample) writerOff("Write-ups aren't available in this view.");
-  if (db && user) {
+  if (user) { try { IS_OWNER = !!(await user.isOwner()); } catch (e) { IS_OWNER = false; } }
+  if (db) {
+    const pair = (p, l) => (p && p.exists && l && l.exists ? { players: JSON.parse(p.data().json), league: JSON.parse(l.data().json) } : null);
+    /* 1. The shared main league: what everyone the page is shared with sees. */
+    let shared = null, mine = null;
+    try { const [p, l] = await Promise.all([db.doc("shared/players").get(), db.doc("shared/league").get()]); shared = pair(p, l); } catch (e) {}
+    /* 2. The owner's private area: other leagues, report, newsletter, settings, and any file dropped on the Data tab. */
     try {
-      UID = await user.id();
+      if (user) UID = await user.id();
       if (UID) {
-        const [l, p, idx] = await Promise.all([db.doc(`data/users/${UID}/league`).get(), db.doc(`data/users/${UID}/players`).get(), db.doc(`data/users/${UID}/leagues`).get()]);
-        if (p.exists) PLAYERS = JSON.parse(p.data().json);
+        const [l, p, idx, r, n, st] = await Promise.all(["league", "players", "leagues", "report", "newsletter", "settings"].map((k) => db.doc(`data/users/${UID}/${k}`).get()));
+        mine = pair(p, l);
         if (idx.exists && Array.isArray(idx.data().list)) LEAGUES = idx.data().list;
-        const want = PREF.league && LEAGUES.some((x) => String(x.id) === String(PREF.league) && !x.primary) ? PREF.league : null;
-        if (want) await switchLeague(want);
-        else if (l.exists && PLAYERS) {
-          const merged = { ...PLAYERS, ...JSON.parse(l.data().json) };
-          if (!validateBundle(merged) && (B.demo || String(merged.fetched) > String(B.fetched) || String(merged.league.id) !== leagueKey())) {
-            setBundle(merged);
-            store.set("flr-bundle", JSON.stringify(merged));
-          }
-        }
-        const [r, n] = await Promise.all([db.doc(`data/users/${UID}/report`).get(), db.doc(`data/users/${UID}/newsletter`).get()]);
         if (r.exists) REPORT = r.data();
         if (n.exists) NEWS = n.data();
-        showMainOnly();
-        renderBoard();
+        if (st.exists) SETTINGS = st.data() || {};
       }
-    } catch (e) { /* account storage unavailable: the browser copy still works */ }
+    } catch (e) { /* private storage unavailable: shared data and the browser copy still work */ }
+    /* The newer copy wins: normally the shared one; a file the owner dropped on the Data tab can be newer. */
+    MAIN = [shared, mine].filter(Boolean).sort((a, b) => String(b.league.fetched).localeCompare(String(a.league.fetched)))[0] || null;
+    SRC = !MAIN ? "" : MAIN === shared ? "shared" : "mine";
+    if (MAIN) PLAYERS = MAIN.players;
+    const want = PREF.league && LEAGUES.some((x) => String(x.id) === String(PREF.league) && !x.primary) ? PREF.league : null;
+    if (want) await switchLeague(want);
+    else if (MAIN) {
+      const merged = { ...MAIN.players, ...MAIN.league };
+      if (!validateBundle(merged) && (B.demo || String(merged.fetched) > String(B.fetched) || String(merged.league.id) !== leagueKey())) {
+        setBundle(merged);
+        store.set("flr-bundle", JSON.stringify(merged));
+      }
+    }
+    showMainOnly();
+    renderBoard();
   }
   loadedInfo();
 }
@@ -107,12 +120,18 @@ async function initCaps() {
 /* Move to another league: its own data, its own "you", and a different accent so it is never mistaken for the main one. */
 async function switchLeague(id) {
   const L = LEAGUES.find((x) => String(x.id) === String(id));
-  if (!L || !CAP.db || !UID || !PLAYERS) return;
+  if (!L || !CAP.db || !PLAYERS) return;
   const msg = $("#lg-msg");
   try {
-    const d = await CAP.db.doc(`data/users/${UID}/${L.primary ? "league" : "league_" + L.id}`).get();
-    if (!d.exists) { if (msg) msg.textContent = `No data for ${L.name} yet.`; return; }
-    const merged = { ...PLAYERS, ...JSON.parse(d.data().json) };
+    let lj;
+    if (L.primary) { if (!MAIN) { if (msg) msg.textContent = `No data for ${L.name} yet.`; return; } lj = MAIN.league; }
+    else {
+      if (!UID) return;
+      const d = await CAP.db.doc(`data/users/${UID}/league_${L.id}`).get();
+      if (!d.exists) { if (msg) msg.textContent = `No data for ${L.name} yet.`; return; }
+      lj = JSON.parse(d.data().json);
+    }
+    const merged = { ...PLAYERS, ...lj };
     if (validateBundle(merged)) return;
     PREF.league = L.primary ? "" : String(L.id); savePrefs();
     setBundle(merged);
@@ -126,8 +145,98 @@ function showMainOnly() {
   const main = LEAGUES.find((x) => x.primary);
   const note = !isMain() && main ? `The weekly report and newsletter are written for ${main.name}. Switch to it in the bar at the top to see them.` : "";
   $("#auto-wrap").hidden = true;
-  if (isMain()) { if (REPORT) showAutoReport(REPORT); if (NEWS) showNewsletter(NEWS); else { $("#nl-body").innerHTML = `<p class="muted">No newsletter yet. The first one appears here after the daily task has run for a finished gameweek.</p>`; } }
-  else { $("#nl-body").innerHTML = `<p class="muted">${esc(note)}</p>`; $("#nl-save").hidden = true; }
+  if (isMain()) {
+    if (REPORT) showAutoReport(REPORT);
+    if (NEWS) showNewsletter(NEWS);
+    else $("#nl-body").innerHTML = IS_OWNER || B.demo
+      ? `<p class="muted">No newsletter yet. The first one appears here after the daily task has run for a finished gameweek.</p>`
+      : `<p class="muted">The newsletter goes out to the league separately and isn't shown on shared copies of this page.</p>`;
+  } else { $("#nl-body").innerHTML = `<p class="muted">${esc(note)}</p>`; $("#nl-save").hidden = true; }
+  setupTone();
+}
+
+/* ------------------------------------------------------------ newsletter tone (owner only) */
+
+let TONES = {}, NL_VOICE = "", tonePreview = { ctl: null };
+try { TONES = JSON.parse($("#t-nl-tones").textContent); } catch (e) { TONES = {}; }
+NL_VOICE = ($("#t-nl-voice") || { textContent: "" }).textContent.trim();
+const toneKey = () => (TONES[SETTINGS.newsletter_tone] ? SETTINGS.newsletter_tone : "dry");
+
+function setupTone() {
+  const box = $("#nl-tone");
+  const show = IS_OWNER && !!UID && !!CAP.db && isMain() && !B.demo && Object.keys(TONES).length > 0;
+  box.hidden = !show;
+  if (!show) return;
+  const sel = $("#nl-tone-sel");
+  if (!sel.options.length) sel.innerHTML = Object.entries(TONES).map(([k, t]) => `<option value="${esc(k)}">${esc(t.label)}</option>`).join("");
+  sel.value = toneKey();
+  const F = NEWS ? (() => { try { return JSON.parse(NEWS.figures); } catch (e) { return null; } })() : null;
+  const redo = $("#nl-tone-redo");
+  redo.parentElement.hidden = !F;
+  if (F) {
+    $("#nl-tone-redo-l").textContent = `Also rebuild the GW${F.gameweek} issue in this tone at the next morning run`;
+    redo.checked = SETTINGS.redo_gw === F.gameweek;
+  }
+  const desc = () => {
+    const t = TONES[sel.value] || {};
+    const cur = sel.value === toneKey() ? " This is the tone in use." : "";
+    $("#nl-tone-desc").textContent = (t.summary || "") + cur;
+  };
+  desc();
+  sel.onchange = desc;
+  const prev = $("#nl-tone-preview");
+  prev.hidden = !CAP.sample || !F;
+  prev.onclick = () => previewTone(F, sel.value);
+  $("#nl-tone-back").onclick = () => { if (tonePreview.ctl) tonePreview.ctl.abort(); $("#nl-tone-back").hidden = true; $("#nl-tone-msg").textContent = ""; showNewsletter(NEWS); };
+  $("#nl-tone-save").onclick = () => saveTone(sel.value, F && redo.checked ? F.gameweek : null);
+}
+
+async function saveTone(key, redoGw) {
+  const msg = $("#nl-tone-msg");
+  msg.className = "msg"; msg.textContent = "Saving…";
+  const next = { newsletter_tone: key, redo_gw: redoGw, updated: new Date().toISOString() };
+  try {
+    await CAP.db.doc(`data/users/${UID}/settings`).set(next);
+    SETTINGS = next;
+    msg.className = "msg ok";
+    msg.textContent = `Saved. ${TONES[key].label} is used from the next issue${redoGw ? `, and GW${redoGw} will be rebuilt in it at the next morning run (07:43)` : ""}.`;
+    $("#nl-tone-desc").textContent = (TONES[key].summary || "") + " This is the tone in use.";
+  } catch (e) {
+    msg.className = "msg err";
+    msg.textContent = "Couldn't save the tone. Try again, or set it in the repo's settings.json (newsletter.tone).";
+  }
+}
+
+/* A one-off preview of this week's columns in another tone: same voice file, same figures, numbers checked. Not saved. */
+async function previewTone(F, key) {
+  if (!CAP.sample || !F) return;
+  const t = TONES[key], msg = $("#nl-tone-msg"), btn = $("#nl-tone-preview");
+  if (tonePreview.ctl) tonePreview.ctl.abort();
+  tonePreview.ctl = new AbortController();
+  btn.disabled = true; msg.className = "msg"; msg.textContent = `Writing a ${t.label} preview…`;
+  const prompt = `${NL_VOICE}\n\n## Tone for this issue: ${t.label}\n\n${t.guide}\nThis tone replaces the Voice section where they differ. Every Rule still applies, and the JSON shape is unchanged.\n\nFIGURES\n${NEWS.figures}\n\nWrite the four parts now. Return the JSON only, nothing before or after it.`;
+  try {
+    const r = await CAP.sample(prompt, { signal: tonePreview.ctl.signal, cache: false });
+    const m = (r.text || "").match(/\{[\s\S]*\}/);
+    const cols = m ? JSON.parse(m[0]) : null;
+    if (!cols || typeof cols.intro !== "string") throw { code: "bad_json" };
+    showNewsletter({ ...NEWS, columns: JSON.stringify(cols), check: "" });
+    const flat = [cols.intro, ...(cols.managers_column || []), ...(cols.transfer_chip_column || []), ...(cols.players_column || [])].join("\n");
+    const nc = numberCheck(flat, F);
+    $("#nl-body").firstElementChild.classList.add("nl-preview");
+    $("#nl-save").hidden = true;
+    $("#nl-tone-back").hidden = false;
+    msg.className = "msg " + (nc.unmatched.length ? "" : "ok");
+    msg.textContent = `Preview in ${t.label}, not saved. ` + (nc.unmatched.length
+      ? `Check: ${nc.unmatched.join(", ")} ${nc.unmatched.length === 1 ? "isn't" : "aren't"} in the figures (may be a worked-out sum). The real issue is checked and fixed by the morning task.`
+      : `All ${nc.checked} numbers match the figures.`);
+  } catch (e) {
+    const c = e && e.code;
+    msg.className = "msg err";
+    msg.textContent = c === "cancelled" ? "" : c === "rate_limited" ? "Too many requests just now. Try again in a minute."
+      : c === "not_granted" ? "Claude previews are switched off for this page. You can allow them from the page's permissions."
+      : c === "bad_json" ? "The preview came back in the wrong shape. Try again." : "Couldn't write the preview. Try again.";
+  } finally { btn.disabled = false; tonePreview.ctl = null; }
 }
 
 /* The report the scheduled task writes each gameweek, kept in the account. */
@@ -210,7 +319,9 @@ function loadedInfo() {
   const when = B.demo ? "" : ` Fetched ${fmtDate(B.fetched)}.`;
   $("#loaded-info").textContent = B.demo
     ? "The example league is showing. Nothing of yours is loaded."
-    : `${B.league.name}: ${S.M.length} managers, gameweek ${S.gw}${e.checked ? " (final)" : " (not final yet)"}.${when} ${UID ? "Kept in your account and this browser." : "Kept in this browser."}`;
+    : `${B.league.name}: ${S.M.length} managers, gameweek ${S.gw}${e.checked ? " (final)" : " (not final yet)"}.${when} ${
+      SRC === "shared" && isMain() ? (IS_OWNER ? "Shared with everyone you share this page with; updated every morning." : "Shared by the page's owner and updated every morning.")
+      : UID ? "Kept in your account and this browser." : "Kept in this browser."}`;
   $("#clear").hidden = !!B.demo;
 }
 

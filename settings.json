@@ -10,6 +10,7 @@
     "going_to": "whatsapp"
   },
   "newsletter": {
-    "enabled": true
+    "enabled": true,
+    "tone": "dry"
   }
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /* Packs a finished newsletter into one JSON document for the League Room page.
 
-   node tools/pack.js figures.json columns.json newsletter.docx check.txt out.json
+   node tools/pack.js figures.json columns.json newsletter.docx check.txt out.json [tone]
 */
 const fs = require("fs");
-const [fig, col, docx, check, out] = process.argv.slice(2);
+const [fig, col, docx, check, out, tone] = process.argv.slice(2);
 const F = JSON.parse(fs.readFileSync(fig, "utf8"));
 const doc = {
   gw: F.gameweek,
@@ -14,6 +14,7 @@ const doc = {
   columns: fs.readFileSync(col, "utf8"),
   docx_b64: fs.readFileSync(docx).toString("base64"),
   check: fs.existsSync(check) ? fs.readFileSync(check, "utf8").trim() : "",
+  tone: tone || "dry",
 };
 const size = JSON.stringify(doc).length;
 if (size > 250000) { console.error(`Too big to store (${size >> 10} KB).`); process.exit(1); }
