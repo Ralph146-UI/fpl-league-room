@@ -2,8 +2,8 @@
 
 | | |
 | --- | --- |
-| **Version** | 1.2 |
-| **Date** | 28 October 2026 |
+| **Version** | 1.3 |
+| **Date** | 24 November 2026 |
 | **Saved as** | Branch `v1.0` on GitHub, frozen at this version. To go back: open the branch on GitHub, or `git checkout v1.0`. |
 | **State** | Live. Gameweek 8 complete; report and newsletter produced automatically. |
 | **Owner** | Rahul Chadha |
@@ -99,6 +99,7 @@ A non-main league switches the accent to blue and shows "League N of M". "You" a
 | Captain picker | Points the armband delivered, Triple Captain included |
 | Team value | Squad value, excluding the bank |
 | Ownership | In the 15-man squad |
+| Form (Form tab) | Last 5 final gameweeks against the season, defined once in `core.js` `formView`. Return = a gameweek of 5+ points. Player confidence: High = 3+ returns in 4+ appearances, Medium = 2 returns, Low = fewer; rated with 3+ appearances. Trend: window average per appearance minus season average (rising/fading at ±1.5; managers ±5 after hits; clubs ±0.5 league points a match). Steadiness: sample standard deviation of weekly points (players: steady ≤2.5, mixed ≤4; managers: ≤10, ≤16). Not a points prediction. |
 
 Validated by regenerating the hand-made GW7 newsletter: every table matched. The hand-made issue undercounted Triple Captains (11 against FPL's 13).
 
@@ -106,8 +107,8 @@ Validated by regenerating the hand-made GW7 newsletter: every table matched. The
 
 | When | What happens |
 | --- | --- |
-| Daily 06:17 UK | GitHub fetches all leagues and commits the data |
-| Daily 07:43 UK | Task loads data into the page; silent if nothing new |
+| Daily 04:47 and 08:47 UTC (GitHub usually starts 1–3 hours late) | GitHub fetches all leagues and commits the data |
+| Daily 11:23 UK | Task waits for today's data (up to an hour), loads it into the page; silent if nothing new |
 | Morning after a gameweek is final | Banter report and newsletter written, checked, saved; notification sent |
 | Fetch stale for 48 hours | Task sends one warning |
 | Each August | Update `league_id` and `other_leagues` |
@@ -117,7 +118,8 @@ To rebuild the page: `python3 page/build.py`, then publish `page/fpl-league-room
 ## 7. Known issues and limits
 
 - FPL can block cloud servers. Fallback: run `python3 fpl_fetch.py` locally and drop the file on the page's Data tab.
-- The task's own push of the newsletter .docx failed once (GW8). The page and phone copies were unaffected and the file was added by hand. Since 1.1 the task retries once and reports a second failure. Watch on GW9.
+- The task's push of the newsletter .docx has never reached GitHub (GW8 added by hand; GW9 and GW10 missing; GW9's page copy was overwritten by GW10). Since 1.3 the task checks the file is really on GitHub, reports the git error if not, and keeps every issue in the page store as `newsletter_gw<N>`.
+- The scheduled task's prompt is kept in `docs/scheduled-task-prompt.md`. Change it there first; the 1.2 Form-tab step was once added only to the live task.
 - The ArtifactData tool may refuse writes from an interactive session without approval. Firing the scheduled task is the reliable way to reload data.
 - The transfer model is simple (form, minutes, fixture difficulty). No xG, rotation or price changes.
 - Sharing requires viewers signed in to Claude. Since 1.1 they see the main league; the other league, report and newsletter stay private.
@@ -142,3 +144,4 @@ Later, if wanted: news context from the Premier League's "The Scout" (summarised
 | 1.0 | 28 Oct 2026 | Live system: daily fetch, page with seven tabs, two leagues, banter report, Word newsletter, Insights tab, number checking. |
 | 1.1 | 28 Oct 2026 | Main league shared (`shared/` area, owner-only writes); report, newsletter and other league stay private. Newsletter tone picker (four tones, preview, one-off rebuild). Task retries a failed newsletter push. |
 | 1.2 | 28 Oct 2026 | Copy for email on the Newsletter tab (owner only): email-safe tables, plain-text fallback; copies a tone preview too. Save as .html as a fallback. |
+| 1.3 | 24 Nov 2026 | Form tab (players, clubs, managers; last 5 gameweeks against the season), fed by one `event/{gw}/live` request per final gameweek. Fetch twice a morning and task moved to 11:23 with a wait for today's data (the 07:43 task often ran before the fetch). Newsletter archive per gameweek and a checked GitHub save. Newsletter (Word and email copy) sits in one borderless single-cell table for pasting into Outlook. Top bar shows the gameweek in progress and flags stale data. |

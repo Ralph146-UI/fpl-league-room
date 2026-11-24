@@ -48,8 +48,8 @@ function setBundle(b, { save } = {}) {
 }
 
 function splitBundle(b) {
-  const { elements, teams, fixtures, events, ...rest } = b;
-  return { players: { elements, teams, fixtures, events }, league: rest };
+  const { elements, teams, fixtures, events, form, ...rest } = b;
+  return { players: { elements, teams, fixtures, events, form }, league: rest };
 }
 
 async function persist(b) {
@@ -426,7 +426,11 @@ function renderBoard() {
   if (B.demo) pills.push(`<span class="pill demo">Example data</span>`);
   else {
     pills.push(`<span class="pill${e.checked ? "" : " warn"}">GW${S.gw} ${e.checked ? "final" : "not final"}</span>`);
-    pills.push(`<span class="pill" title="When the data was fetched">Fetched ${esc(fmtDate(B.fetched))}</span>`);
+    const cur = B.events.find((x) => x.current);
+    if (cur && cur.id > S.gw) pills.push(`<span class="pill" title="Reports, the newsletter and the Form tab move on once FPL marks this gameweek final, usually the morning after its last match.">GW${cur.id} in progress</span>`);
+    const age = (Date.now() - new Date(B.fetched).getTime()) / 3600e3;
+    pills.push(`<span class="pill${age > 36 ? " warn" : ""}" title="When the data was fetched${age > 36 ? ": the morning fetch hasn't produced anything newer" : ""}">${age > 36 ? "Stale: " : ""}Fetched ${esc(fmtDate(B.fetched))}</span>`);
+    if (IS_OWNER && isMain() && NEWS && NEWS.gw) pills.push(`<span class="pill" title="The latest newsletter on the Newsletter tab">Newsletter GW${esc(NEWS.gw)}</span>`);
   }
   if (nx && nx.deadline) pills.push(`<span class="pill">GW${nx.id} deadline ${esc(fmtDate(nx.deadline))}</span>`);
   if (LEAGUES.length > 1) {
@@ -673,7 +677,8 @@ function renderGameweek() {
 
 /* ------------------------------------------------------------ insights view */
 
-let INS = null, insSort = { teams: { k: "rank", d: 1 }, players: { k: "pts", d: -1 } }, insPos = "";
+let INS = null, insSort = { teams: { k: "rank", d: 1 }, players: { k: "pts", d: -1 }, fplayers: { k: "avg5", d: -1 }, fclubs: { k: "formPts", d: -1 }, fmanagers: { k: "avg5", d: -1 } }, insPos = "";
+let FORM = null, formPos = "";
 function renderInsights() {
   INS = playerInsights(S);
   $("#ins-empty").hidden = !!INS; $("#ins-body").hidden = !INS;
@@ -692,7 +697,7 @@ function insSortable(table, which, render) {
   $$("th[data-k]", table).forEach((th) => {
     const st = insSort[which];
     th.setAttribute("aria-sort", th.dataset.k === st.k ? (st.d > 0 ? "ascending" : "descending") : "none");
-    th.querySelector("button").onclick = () => { const k = th.dataset.k; if (k === st.k) st.d *= -1; else { st.k = k; st.d = ["rank", "name", "ga", "l", "cost"].includes(k) ? 1 : -1; } render(); };
+    th.querySelector("button").onclick = () => { const k = th.dataset.k; if (k === st.k) st.d *= -1; else { st.k = k; st.d = ["rank", "name", "ga", "l", "cost", "sd", "ga5"].includes(k) ? 1 : -1; } render(); };
   });
 }
 const cmp = (k, d) => (a, b) => { const x = a[k] ?? -1e9, y = b[k] ?? -1e9; return (typeof x === "string" ? x.localeCompare(y) : x - y) * d; };
@@ -715,6 +720,50 @@ function insPlayers() {
     <td class="num">${p.goals}</td><td class="num">${p.assists}</td><td class="num">${p.xgi}</td><td class="num ${p.gaVsXgi >= 1.5 ? "over" : p.gaVsXgi <= -1.5 ? "under" : ""}">${signed(p.gaVsXgi)}</td>
     <td class="num">${p.cs}</td><td class="num">${p.bonus}</td><td class="num">${p.dc}</td><td class="num">${p.leagueOwnPct}%</td><td class="num muted">${p.globalOwn}%</td></tr>`).join("") || `<tr><td class="l muted" colspan="17">No players match.</td></tr>`;
   insSortable(t, "players", insPlayers);
+}
+
+/* ------------------------------------------------------------ form view (every figure from core.js formView) */
+
+function renderForm() {
+  FORM = formView(S);
+  $("#form-empty").hidden = !!FORM; $("#form-body").hidden = !FORM;
+  if (!FORM) return;
+  const R = FORM.rules, g = FORM.gws;
+  $("#form-note").textContent = `Not a points prediction: how sure we can be that a player is in consistent form, from GW${g[0]} to GW${g[g.length - 1]}, set against their whole season.`;
+  $("#form-key").textContent = `Return: a gameweek of ${R.returnPts}+ points. Confidence: High = 3+ returns in 4+ appearances, Medium = 2 returns, Low = fewer; players need 3+ appearances in the window to be rated. vs season: average per appearance in the window minus the season average. Steadiness: the spread of weekly points all season (lower is steadier). A dashed box is a gameweek without minutes. Click a column to sort. Top 50 shown.`;
+  $("#form-clubs-wrap").hidden = !FORM.clubs.length;
+  formPlayers(); formClubs(); formManagers();
+}
+const l5 = (arr, isRet) => `<span class="l5">${arr.map((v) => (v == null ? `<span class="x" title="No minutes">–</span>` : `<span class="${isRet(v) ? "r" : ""}">${v}</span>`)).join("")}</span>`;
+const trendCell = (d, label) => `<td class="num"><span class="tr ${label}" title="${label}">${signed(d)}</span></td>`;
+function formPlayers() {
+  const t = $("#form-players"), st = insSort.fplayers, minConf = +$("#form-conf").value, ownF = $("#form-own").value;
+  $$("#form-posf button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.p === formPos)));
+  const rows = FORM.players.filter((p) => (!formPos || p.pos === formPos) && p.confN >= minConf && (!ownF || (ownF === "y" ? p.leagueOwn > 0 : p.leagueOwn === 0)))
+    .sort((a, b) => cmp(st.k, st.d)(a, b) || b.avg5 - a.avg5).slice(0, 50);
+  t.querySelector("tbody").innerHTML = rows.map((p) => `<tr><td class="l"><b style="color:var(--ink);font-weight:500">${esc(p.name)}</b> <span class="muted">${esc(p.club)}</span>${p.news ? `<span class="badge flag" title="${esc(p.news)}">news</span>` : ""}</td><td class="l muted">${p.pos}</td>
+    <td class="num">${p.cost.toFixed(1)}</td><td class="l">${l5(p.last, (v) => v >= FORM.rules.returnPts)}</td><td class="num"><b style="color:var(--ink)">${p.avg5}</b></td><td class="num">${p.returns}/${p.played}</td>
+    <td class="num"><span class="conf ${p.conf}">${p.conf}</span></td>${trendCell(p.trend, p.trendLabel)}<td class="num">${p.avgSeason}</td>
+    <td class="num" title="${p.steady ? `Spread ${p.sd} points over ${p.apps} appearances` : "Too few appearances"}">${p.steady ? `${esc(p.steady)} <span class="muted">${p.sd}</span>` : "–"}</td><td class="num">${p.returnRate}%</td><td class="num">${p.leagueOwnPct}%</td></tr>`).join("")
+    || `<tr><td class="l muted" colspan="12">No players match.</td></tr>`;
+  insSortable(t, "fplayers", formPlayers);
+}
+function formClubs() {
+  const t = $("#form-clubs"), st = insSort.fclubs;
+  const rows = FORM.clubs.slice().sort((a, b) => cmp(st.k, st.d)(a, b) || b.formPts - a.formPts);
+  t.querySelector("tbody").innerHTML = rows.map((c) => `<tr><td class="l"><div class="who"><b>${esc(c.name)}</b><span>${esc(c.club)}</span></div></td>
+    <td class="l"><span class="frm">${c.results.map((r) => `<span class="${r.res}" title="GW${r.ev}: ${r.venue === "H" ? "v" : "at"} ${esc(r.opp)} ${r.score}">${r.res}</span>`).join("")}</span></td>
+    <td class="num"><b style="color:var(--ink)">${c.formPts}</b><span class="muted">/${c.of}</span></td><td class="num">${c.gf5}</td><td class="num">${c.ga5}</td><td class="num">${c.cs5}</td>
+    <td class="num">${c.ppg5}</td><td class="num">${c.ppgSeason}</td>${trendCell(c.trend, c.trendLabel)}</tr>`).join("");
+  insSortable(t, "fclubs", formClubs);
+}
+function formManagers() {
+  const t = $("#form-managers"), st = insSort.fmanagers;
+  const rows = FORM.managers.slice().sort((a, b) => cmp(st.k, st.d)(a, b) || b.avg5 - a.avg5);
+  t.querySelector("tbody").innerHTML = rows.map((m) => `<tr${m.name === PREF.me ? ' class="me"' : ""}><td class="l"><div class="who"><b>${esc(m.name)}</b><span>${esc(m.team)}</span></div></td>
+    <td class="l">${l5(m.last, () => false)}</td><td class="num"><b style="color:var(--ink)">${m.avg5}</b></td><td class="num">${m.beat}/${m.of}</td>${trendCell(m.trend, m.trendLabel)}
+    <td class="num">${m.avgSeason}</td><td class="num" title="${m.sd != null ? `Spread ${m.sd} points a week` : ""}">${m.steady ? `${esc(m.steady)} <span class="muted">${m.sd}</span>` : "–"}</td></tr>`).join("");
+  insSortable(t, "fmanagers", formManagers);
 }
 
 /* ------------------------------------------------------------ transfers view */
@@ -865,7 +914,7 @@ async function copyText(text, btn) {
 
 /* ------------------------------------------------------------ routing and wiring */
 
-const VIEWS = ["league", "gameweek", "insights", "transfers", "newsletter", "write-ups", "data"];
+const VIEWS = ["league", "gameweek", "insights", "form", "transfers", "newsletter", "write-ups", "data"];
 function route() {
   const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "league";
   $$("[data-view]").forEach((x) => (x.hidden = x.dataset.view !== v));
@@ -875,7 +924,7 @@ function route() {
 }
 
 function renderAll() {
-  renderBoard(); renderLeague(); renderGameweek(); renderInsights(); renderTransfers(); renderWriter(); loadedInfo();
+  renderBoard(); renderLeague(); renderGameweek(); renderInsights(); renderForm(); renderTransfers(); renderWriter(); loadedInfo();
 }
 
 function wire() {
@@ -890,6 +939,9 @@ function wire() {
   $("#span-from").onchange = spanChange; $("#span-to").onchange = spanChange;
   $$("#ins-posf button").forEach((b) => (b.onclick = () => { insPos = b.dataset.p; insPlayers(); }));
   $("#ins-min").onchange = () => insPlayers();
+  $$("#form-posf button").forEach((b) => (b.onclick = () => { formPos = b.dataset.p; formPlayers(); }));
+  $("#form-conf").onchange = () => formPlayers();
+  $("#form-own").onchange = () => formPlayers();
   $("#adv-who").onchange = (e) => { adv.who = e.target.value; adv.ft = null; renderTransfers(); };
   $$("#adv-h button").forEach((b) => (b.onclick = () => { adv.h = +b.dataset.h; PREF.h = adv.h; savePrefs(); renderTransfers(); }));
   $("#adv-ft").onchange = (e) => { const v = Math.max(0, Math.min(5, Math.round(+e.target.value || 0))); adv.ft = v; renderTransfers(); };

@@ -99,8 +99,13 @@ const EMAIL = (() => {
       box((Cl.players_column || []).map((t) => `<p style="margin:0 0 10px;font-family:${FONT};font-size:14px;line-height:1.5;color:${INK}">${rich(t)}</p>`).join("")),
       `<tr>${td(`<a href="${FPL}" style="font-family:${FONT};font-size:11px;color:${PURPLE};text-decoration:underline">Fantasy Premier League, Official Fantasy Football Game of the Premier League</a>`, `padding:16px 0 0;text-align:center`, `align="center"`)}</tr>`,
     ].join("");
-    /* Outer wrapper: fixed 640px, white, left-aligned so it sits naturally under a greeting typed above it. */
-    const html = `<table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-collapse:collapse;width:${W}px;max-width:100%;background:#ffffff;font-family:${FONT};color:${INK}">${rows}</table>`;
+    /* Outer wrapper: the whole issue in ONE borderless cell of a one-cell table (fixed 640px, white,
+       left-aligned). Outlook keeps a pasted single-cell table together as one block, the same trick as
+       pasting into a Word one-cell table with the borders set to none. Borders are off three ways
+       (attribute, style, mso) because Outlook desktop and Word each honour a different one. */
+    const nb = "border:none;mso-border-alt:none;";
+    const inner = `<table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-collapse:collapse;width:${W}px;background:#ffffff;font-family:${FONT};color:${INK}">${rows}</table>`;
+    const html = `<table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-collapse:collapse;${nb}width:${W}px;max-width:100%;background:#ffffff"><tr><td width="${W}" valign="top" bgcolor="#ffffff" style="${nb}padding:0;width:${W}px;vertical-align:top;background:#ffffff">${inner}</td></tr></table>`;
 
     /* Plain-text version, for clients that refuse formatting */
     const T = [];

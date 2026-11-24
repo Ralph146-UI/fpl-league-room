@@ -479,6 +479,84 @@ function playerInsights(S) {
   return { players, teams: teamRows, positions: posRows, missing, leagueFavs, managers: N };
 }
 
+/* ------------------------------------------------------------ form */
+
+/* The Form tab. Not a points prediction: how sure we can be that a player, club or
+   manager is in consistent form, from the last FORM_N final gameweeks, set against
+   how steady they have been all season. Every threshold is defined here, once.
+     A "return" is a gameweek of 5+ points (roughly a goal or assist on top of appearance
+     points, or a clean sheet with bonus).
+     Confidence (players): High = 3+ returns and 4+ appearances in the window;
+       Medium = 2 returns; Low = fewer. Rated only with 3+ appearances in the window.
+     Trend: window average minus season average, per appearance. Rising at +1.5 or more,
+       fading at -1.5 or less, otherwise level (managers: 5 points; clubs: 0.5 league points a match).
+     Managers use weekly points after hits; steadiness steady up to 10, mixed up to 16.
+     Steadiness (season): sample standard deviation (sdev) of points per appearance,
+       with 4+ appearances. Steady up to 2.5, mixed up to 4, boom or bust above. */
+const FORM_N = 5, RETURN_PTS = 5, TREND_STEP = 1.5, TREND_STEP_MANAGER = 5;
+const trendOf = (d, step = TREND_STEP) => (d == null ? null : d >= step ? "rising" : d <= -step ? "fading" : "level");
+const steadyOf = (sd) => (sd == null ? null : sd <= 2.5 ? "steady" : sd <= 4 ? "mixed" : "boom or bust");
+
+function formView(S) {
+  const F = S.b.form;
+  if (!F || !Array.isArray(F.gws) || F.gws.length < 3) return null;
+  const gws = F.gws, win = gws.slice(-FORM_N), wi = gws.length - win.length;
+  const own = {};
+  S.M.forEach((m) => { const sq = m.squad || m.picks; if (sq) sq.picks.forEach((p) => { own[p[0]] = (own[p[0]] || 0) + 1; }); });
+
+  const players = Object.entries(F.pts).map(([id, arr]) => {
+    const p = S.P.get(+id); if (!p) return null;
+    const season = arr.filter((x) => x != null), last = arr.slice(wi), played = last.filter((x) => x != null);
+    if (played.length < 3) return null;
+    const avg5 = mean(played), avgS = mean(season), returns = played.filter((x) => x >= RETURN_PTS).length;
+    const conf = returns >= 3 && played.length >= 4 ? "High" : returns >= 2 ? "Medium" : "Low";
+    const sd = season.length >= 4 ? sdev(season) : null;
+    return {
+      id: p.id, name: p.name, club: teamShort(S, p.team), pos: POS[p.pos], cost: p.cost, news: p.news, status: p.status,
+      last, played: played.length, avg5: r1(avg5), returns, conf, confN: { High: 3, Medium: 2, Low: 1 }[conf],
+      avgSeason: r1(avgS), trend: r1(avg5 - avgS), trendLabel: trendOf(avg5 - avgS),
+      apps: season.length, sd: sd == null ? null : r1(sd), steady: steadyOf(sd), returnRate: Math.round(season.filter((x) => x >= RETURN_PTS).length / season.length * 100),
+      leagueOwn: own[p.id] || 0, leagueOwnPct: Math.round((own[p.id] || 0) / S.M.length * 100),
+    };
+  }).filter(Boolean);
+
+  /* Clubs: league points per match over their last FORM_N results against the whole season */
+  const res = new Map([...S.teams.keys()].map((id) => [id, []]));
+  (S.b.results || []).slice().sort((a, b) => a[0] - b[0]).forEach(([ev, h, a, hs, as]) => {
+    if (hs == null || as == null) return;
+    if (res.has(h)) res.get(h).push({ ev, opp: a, venue: "H", gf: hs, ga: as });
+    if (res.has(a)) res.get(a).push({ ev, opp: h, venue: "A", gf: as, ga: hs });
+  });
+  const ptsOf = (r) => (r.gf > r.ga ? 3 : r.gf === r.ga ? 1 : 0);
+  const clubs = [...res.entries()].filter(([, rs]) => rs.length >= 3).map(([id, rs]) => {
+    const last = rs.slice(-FORM_N), ppg5 = mean(last.map(ptsOf)), ppgS = mean(rs.map(ptsOf));
+    return {
+      id, club: teamShort(S, id), name: S.teams.get(id).name,
+      results: last.map((r) => ({ res: r.gf > r.ga ? "W" : r.gf < r.ga ? "L" : "D", score: `${r.gf}-${r.ga}`, opp: teamShort(S, r.opp), venue: r.venue, ev: r.ev })),
+      formPts: sum(last.map(ptsOf)), of: last.length * 3, gf5: sum(last.map((r) => r.gf)), ga5: sum(last.map((r) => r.ga)), cs5: last.filter((r) => r.ga === 0).length,
+      ppg5: r1(ppg5), ppgSeason: r1(ppgS), trend: r1(ppg5 - ppgS), trendLabel: ppg5 - ppgS >= 0.5 ? "rising" : ppg5 - ppgS <= -0.5 ? "fading" : "level",
+    };
+  }).sort((a, b) => b.formPts - a.formPts || (b.gf5 - b.ga5) - (a.gf5 - a.ga5));
+
+  /* Managers: weekly points after hits, the window against the season and the league average */
+  const netOf = (m, g) => { const h = m.hist.get(g); return h ? h.pts - h.cost : null; };
+  const lgAvg = new Map(S.gws.map((g) => { const v = S.M.map((m) => netOf(m, g)).filter((x) => x != null); return [g, v.length ? mean(v) : null]; }));
+  const mg = S.gws.slice(-FORM_N);
+  const managers = S.M.map((m) => {
+    const net = (g) => netOf(m, g);
+    const season = S.gws.map(net).filter((x) => x != null), last = mg.map(net), played = last.filter((x) => x != null);
+    if (played.length < 3) return null;
+    const avg5 = mean(played), avgS = mean(season), beat = mg.filter((g) => net(g) != null && lgAvg.get(g) != null && net(g) > lgAvg.get(g)).length;
+    const sd = season.length >= 4 ? sdev(season) : null;
+    return {
+      name: m.name, team: m.team, last, avg5: r1(avg5), avgSeason: r1(avgS), trend: r1(avg5 - avgS), trendLabel: trendOf(avg5 - avgS, TREND_STEP_MANAGER),
+      beat, of: played.length, sd: sd == null ? null : r1(sd), steady: sd == null ? null : sd <= 10 ? "steady" : sd <= 16 ? "mixed" : "boom or bust",
+    };
+  }).filter(Boolean).sort((a, b) => b.avg5 - a.avg5);
+
+  return { gws: win, managerGws: mg, players, clubs, managers, rules: { window: FORM_N, returnPts: RETURN_PTS, trendStep: TREND_STEP } };
+}
+
 /* ------------------------------------------------------------ newsletter */
 
 /* Every figure in the newsletter, in one place. The written columns are
@@ -666,6 +744,14 @@ function demoBundle() {
   const live = {};
   elements.forEach((e) => { const starter = e[7] > 400; const mins = starter ? (R() < 0.85 ? 90 : ri(20, 70)) : (R() < 0.3 ? ri(5, 30) : 0); const pts = mins ? Math.max(1, Math.round(norm(e[6], 2.6))) : 0; if (mins || pts) live[e[0]] = [pts, mins]; });
   const lp = (el) => (live[el] || [0])[0];
+  /* Form tab: made-up points per gameweek, the last one matching live */
+  const form = { gws: Array.from({ length: gw }, (_, i) => i + 1), pts: {} };
+  elements.forEach((e) => {
+    if (e[7] <= 0) return;
+    const starter = e[7] > 400, lvl = norm(e[6], 1.2);
+    const arr = form.gws.map((g) => (g === gw ? (live[e[0]] ? lp(e[0]) : null) : (starter ? R() < 0.88 : R() < 0.3) ? Math.max(0, Math.round(norm(lvl + (g > gw - 4 ? norm(0, 1) : 0), 2.8))) : null));
+    if (arr.some((x) => x != null)) form.pts[e[0]] = arr;
+  });
   const names = ["Priya Nair", "Tom Okafor", "Hannah Reid", "Marcus Chen", "Ellie Fraser", "Sam Patel", "Jonny Burke", "Aisha Mensah", "Callum Grant", "Leah Murray", "Dev Sharma", "Rory McLeod"];
   const tnames = ["Nair Necessities", "Okafor Granted", "Reid Alert", "Chen Reaction", "Fraser Rangers", "Patel Power", "Burke Lane FC", "Mensah Sana", "Grant Thy Wish", "Murray Christmas", "Sharma Chameleon", "McLeod of Hope"];
   const byPos = (p) => elements.filter((e) => e[3] === p);
@@ -705,8 +791,8 @@ function demoBundle() {
     for (let k = 0; k < h9[6]; k++) { const inn = order[ri(0, 10)][0]; const out = pick(byPos(S_pos(elements, inn))).at(0); transfers.push([inn, out, gw]); }
     return { entry: 1000 + mi, name: n, team: tnames[mi], history, chips, picks: pk, prev: pk, squad: pk, transfers };
   });
-  return { v: 1, demo: true, fetched: "2026-10-28T09:00+00:00", league: { id: 0, name: "Example League" }, gw, squad_gw: gw, events, teams, elements, fixtures, live, managers };
+  return { v: 1, demo: true, fetched: "2026-10-28T09:00+00:00", league: { id: 0, name: "Example League" }, gw, squad_gw: gw, events, teams, elements, fixtures, live, form, managers };
 }
 function S_pos(elements, id) { const e = elements.find((x) => x[0] === id); return e ? e[3] : 1; }
 
-if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, playerInsights, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
+if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, playerInsights, formView, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };

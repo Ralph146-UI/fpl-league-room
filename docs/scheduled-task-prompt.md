@@ -1,6 +1,10 @@
 # Scheduled task: "FPL League Room refresh"
 
-Version 1.1, 28 October 2026 (1.1: main league shared, newsletter tone). Task id `trig_016FNgx9PT5WW6cE9eZQgXSx`, daily at 07:43 Europe/London, runs in the cloud with automatic approval and push notifications.
+Version 1.3, 24 November 2026 (1.1: main league shared, newsletter tone; 1.3: Form tab data, now part of the shared "players" doc; runs at 11:23 after the GitHub fetch, waits for today's data, keeps every newsletter, checks the GitHub save). Task id `trig_016FNgx9PT5WW6cE9eZQgXSx`, daily at 11:23 Europe/London, runs in the cloud with automatic approval and push notifications.
+
+Why 11:23: the GitHub Action (`.github/workflows/fetch.yml`) is scheduled at 04:47 and 08:47 UTC, but GitHub starts scheduled runs late, often by one to three hours. The task runs after both should have landed, and step 1b waits up to an hour if today's data still isn't there.
+
+This file is the source of truth: the live task's prompt must match the text below. Change it here first, then paste it into the task.
 
 To restore it, create a scheduled task with the schedule above and paste the prompt below exactly.
 
@@ -10,11 +14,13 @@ Refresh the user's FPL League Room page from their GitHub repo and, when a gamew
 
 Page (published artifact): https://claude.ai/artifact/9qRQFge74rDATu7jrbkEiw
 Repo (private): https://github.com/Ralph146-UI/fpl-league-room
-All database writes go to the page with the ArtifactData tool. The MAIN league's page data (docs "players" and "league") goes in the shared collection "shared", which everyone the page is shared with can read. Everything else (status, leagues, league_<id>, report, newsletter, settings) stays in the user's private area: collection "data/users/me". Never write a report, newsletter or other league to "shared". Every write to a document that already exists needs if_version from your most recent get of it; omit if_version only when creating.
+All database writes go to the page with the ArtifactData tool, which can write a document straight from a file (file_path). If this session has no ArtifactData tool, never paste league data into a write by hand: send the user one short message ("Today's FPL refresh couldn't write to your League Room page: the page storage tool wasn't available to the task.") and stop. The MAIN league's page data (docs "players" and "league"; "players" also carries the Form tab's data) goes in the shared collection "shared", which everyone the page is shared with can read. Everything else (status, leagues, league_<id>, report, newsletter, settings) stays in the user's private area: collection "data/users/me". Never write a report, newsletter or other league to "shared". Every write to a document that already exists needs if_version from your most recent get of it; omit if_version only when creating.
 
 The repo tracks more than one league. settings.json "league_id" is the MAIN league: its data is data/fpl_bundle.json and it is the only league that gets the report and newsletter. Leagues in "other_leagues" have data/fpl_bundle_<id>.json and appear on the page only. Never mix data between leagues.
 
 1. Get the data. Call the add_repo tool (owner Ralph146-UI, repo fpl-league-room, access push), then clone with the command it gives, into a folder called repo. If add_repo or the clone fails, send the user one short message ("Today's FPL refresh couldn't read your GitHub repo: <reason>. Check Claude still has access to fpl-league-room at https://github.com/settings/installations.") and stop. If repo/data/fpl_bundle.json does not exist, stop with no message.
+1b. Make sure today's fetch has landed. Run: node repo/tools/payload.js info repo/data/fpl_bundle.json
+   If the date part of "fetched" is not today's date (UTC), wait 10 minutes, run (cd repo && git pull -q), and check again; do this at most 6 times. Then carry on with whatever is there: step 3 deals with data that is days old.
 2. Run: node repo/tools/payload.js info repo/data/fpl_bundle.json
    It prints league, gw, final, fetched for the main league. Remember them.
 3. Stale data check. ArtifactData get collection "data/users/me", doc_id "status". If "fetched" is more than 48 hours before now and the status doc's "stale_alert_for" is not equal to that fetched value: send the user one short message ("The FPL fetch on GitHub hasn't produced new data since <date>. Check the Actions tab at https://github.com/Ralph146-UI/fpl-league-room/actions — the FPL site sometimes refuses GitHub's servers.") and set the status doc's stale_alert_for to that fetched value (update or create). Then stop.
@@ -44,11 +50,12 @@ The repo tracks more than one league. settings.json "league_id" is the MAIN leag
      If it says the docx package is missing, run (cd repo && npm install docx --no-save --silent) and build again.
    - Look at it once: convert it to PDF with LibreOffice (soffice --headless --convert-to pdf) and view the pages. If anything is clearly broken (empty sections, text overflowing a table), fix columns.json and rebuild once.
    - Run: node repo/tools/pack.js figures.json columns.json repo/data/newsletters/GW<gw>_FPL_Newsletter.docx check.txt newsletter.json <TONE>
-     then ArtifactData set "data/users/me" doc "newsletter" with file_path newsletter.json (if_version if it existed).
+     then ArtifactData set "data/users/me" doc "newsletter" with file_path newsletter.json (if_version if it existed), and also set doc "newsletter_gw<gw>" from the same file (if_version if it existed). The second copy is the archive: "newsletter" is overwritten every week, "newsletter_gw<gw>" never is.
    - If REDO was true, update "data/users/me" doc "settings" (if_version from your get) with data {"redo_gw": null}, so it is rebuilt only once.
-   - Save it to the repo: cd repo, git add data/newsletters, commit "Newsletter GW<gw>" (add " (<TONE> tone)" unless TONE is dry), git pull --rebase, git push. If the push fails, retry once after git pull --rebase; if it still fails, carry on and say so in step 8 ("The newsletter couldn't be saved to GitHub: <reason>."). The page still has the file.
+   - Save it to the repo: cd repo, git add data/newsletters, commit "Newsletter GW<gw>" (add " (<TONE> tone)" unless TONE is dry), git pull --rebase, git push. If the push fails, retry once after git pull --rebase.
+   - Check it really arrived: run (cd repo && git fetch -q origin && git log origin/main --oneline -1 -- data/newsletters/GW<gw>_FPL_Newsletter.docx). SAVED is true only if that prints your commit. If SAVED is false, keep the exact error text from git: step 8 must report it ("The newsletter couldn't be saved to GitHub: <reason>. It is still on the Newsletter tab."). Never say it is in the repo unless SAVED is true.
 
 8. Tell the user, only if step 6 or step 7 produced something new this run. One message:
-   - First line: "GW<gw> is done." (or "GW<gw> newsletter rebuilt in the <TONE label> tone." when REDO was the only reason step 7 ran). Then, if a newsletter was built: "The newsletter is ready on your League Room page (Newsletter tab) and in your repo under data/newsletters." plus the tone label if TONE is not dry, plus its check line if it flagged anything.
+   - First line: "GW<gw> is done." (or "GW<gw> newsletter rebuilt in the <TONE label> tone." when REDO was the only reason step 7 ran). Then, if a newsletter was built: "The newsletter is ready on your League Room page (Newsletter tab)" followed by " and in your repo under data/newsletters." if SAVED is true, or by "." and the step 7 failure line if it is false; plus the tone label if TONE is not dry, plus its check line if it flagged anything.
    - If a report was written: a blank line, then "Banter report, ready to paste:" and the report text exactly as written.
    If you can send files to the user in this session, also send the newsletter .docx.

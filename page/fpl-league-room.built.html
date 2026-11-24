@@ -245,6 +245,11 @@ details summary{cursor:pointer;color:var(--accent);font-size:.88rem}
 .fd.d3{background:var(--sunk);color:var(--muted)}
 .fd.d4,.fd.d5{background:var(--bad-soft);color:var(--bad)}
 .frm{font-family:var(--mono);font-size:.74rem;letter-spacing:.06em}
+.l5{display:inline-flex;gap:3px}.l5 span{display:inline-block;min-width:1.9em;text-align:center;font-family:var(--mono);font-size:.72rem;padding:1px 3px;border-radius:3px;background:var(--sunk);color:var(--muted)}
+.l5 span.r{background:var(--good-soft);color:var(--good)}.l5 span.x{background:transparent;border:1px dashed var(--line)}
+.conf{font-family:var(--mono);font-size:.72rem;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.conf.High{background:var(--good-soft);color:var(--good)}.conf.Medium{background:var(--warn-soft);color:var(--warn)}.conf.Low{background:var(--sunk);color:var(--muted)}
+.tr.rising{color:var(--good)}.tr.fading{color:var(--bad)}.tr.level{color:var(--muted)}
 .frm .W{color:var(--good)}.frm .L{color:var(--bad)}.frm .D{color:var(--muted)}
 .vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 @media (max-width:720px){.vs{grid-template-columns:1fr}}
@@ -296,7 +301,7 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
       <div class="you"><label for="me">You</label><select id="me"><option value="">Pick your name</option></select></div>
     </div>
     <nav class="tabs" aria-label="Views">
-      <a href="#league" data-v="league">League</a><a href="#gameweek" data-v="gameweek">Gameweek</a><a href="#insights" data-v="insights">Insights</a><a href="#transfers" data-v="transfers">Transfers</a><a href="#newsletter" data-v="newsletter">Newsletter</a><a href="#write-ups" data-v="write-ups">Write-ups</a><a href="#data" data-v="data">Data</a>
+      <a href="#league" data-v="league">League</a><a href="#gameweek" data-v="gameweek">Gameweek</a><a href="#insights" data-v="insights">Insights</a><a href="#form" data-v="form">Form</a><a href="#transfers" data-v="transfers">Transfers</a><a href="#newsletter" data-v="newsletter">Newsletter</a><a href="#write-ups" data-v="write-ups">Write-ups</a><a href="#data" data-v="data">Data</a>
     </nav>
   </div>
 </div>
@@ -420,6 +425,44 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
             <th data-k="per90"><button type="button">Pts/90</button></th><th data-k="form"><button type="button">Form</button></th><th data-k="mins"><button type="button">Mins</button></th>
             <th data-k="goals"><button type="button">G</button></th><th data-k="assists"><button type="button">A</button></th><th data-k="xgi"><button type="button">xGI</button></th><th data-k="gaVsXgi"><button type="button">G+A vs xGI</button></th>
             <th data-k="cs"><button type="button">CS</button></th><th data-k="bonus"><button type="button">Bonus</button></th><th data-k="dc"><button type="button">Def con</button></th><th data-k="leagueOwnPct"><button type="button">League</button></th><th data-k="globalOwn"><button type="button">Global</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div class="view" data-view="form" hidden>
+    <p class="muted" id="form-empty" hidden>Form needs at least three final gameweeks of player points. They arrive with the next automatic fetch.</p>
+    <div class="view" id="form-body" style="gap:36px">
+      <section>
+        <div class="sechead"><h2>Players in form</h2><p id="form-note">Not a points prediction: how sure we can be that a player is in consistent form.</p></div>
+        <div class="controls"><div class="seg" id="form-posf"><button type="button" data-p="">All</button><button type="button" data-p="GKP">GKP</button><button type="button" data-p="DEF">DEF</button><button type="button" data-p="MID">MID</button><button type="button" data-p="FWD">FWD</button></div>
+          <div class="field"><label for="form-conf">Confidence</label><select id="form-conf"><option value="3">High only</option><option value="2" selected>High and medium</option><option value="1">Any</option></select></div>
+          <div class="field"><label for="form-own">Owned in this league</label><select id="form-own"><option value="">Either</option><option value="y">Owned</option><option value="n">Not owned</option></select></div></div>
+        <p class="muted" style="font-size:.82rem" id="form-key"></p>
+        <div class="tablewrap"><table id="form-players">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Player</button></th><th class="l">Pos</th><th data-k="cost"><button type="button">£m</button></th>
+            <th class="l">Last 5 GWs</th><th data-k="avg5" aria-sort="descending"><button type="button">Avg</button></th><th data-k="returns"><button type="button">Returns</button></th>
+            <th data-k="confN"><button type="button">Confidence</button></th><th data-k="trend"><button type="button">vs season</button></th>
+            <th data-k="avgSeason"><button type="button">Season avg</button></th><th data-k="sd"><button type="button">Steadiness</button></th><th data-k="returnRate"><button type="button">Season returns</button></th><th data-k="leagueOwnPct"><button type="button">League</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+      <section id="form-clubs-wrap">
+        <div class="sechead"><h2>Clubs</h2><p>League points from the last five matches against the season rate. Useful for picking defences and attacks to back.</p></div>
+        <div class="tablewrap"><table id="form-clubs">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Club</button></th><th class="l">Last 5</th><th data-k="formPts" aria-sort="descending"><button type="button">Pts</button></th>
+            <th data-k="gf5"><button type="button">GF</button></th><th data-k="ga5"><button type="button">GA</button></th><th data-k="cs5"><button type="button">CS</button></th>
+            <th data-k="ppg5"><button type="button">Pts/match</button></th><th data-k="ppgSeason"><button type="button">Season</button></th><th data-k="trend"><button type="button">vs season</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Managers</h2><p>Weekly points after hits over the last five gameweeks, against each manager's season and the league average.</p></div>
+        <div class="tablewrap"><table id="form-managers">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Manager</button></th><th class="l">Last 5 GWs</th><th data-k="avg5" aria-sort="descending"><button type="button">Avg</button></th>
+            <th data-k="beat"><button type="button">Beat league avg</button></th><th data-k="trend"><button type="button">vs season</button></th><th data-k="avgSeason"><button type="button">Season avg</button></th><th data-k="sd"><button type="button">Steadiness</button></th>
           </tr></thead><tbody></tbody></table></div>
       </section>
     </div>
@@ -769,6 +812,16 @@ def run_one(args):
 
     out = HERE / args.out
     done = sorted(e["id"] for e in events if e.get("finished") and e.get("data_checked") and e["id"] <= gw)
+
+    # Form tab: every player's points in each final gameweek this season (null = didn't play).
+    # One request per gameweek, cached for a day, so the second league reuses the first's.
+    form_pts = {}
+    for i, g in enumerate(done):
+        lv = get(f"/event/{g}/live/", ttl=86400) or {"elements": []}
+        for x in lv.get("elements", []):
+            s = x["stats"]
+            if s.get("minutes", 0):
+                form_pts.setdefault(str(x["id"]), [None] * len(done))[i] = s.get("total_points", 0)
     caps = captain_history(rows, done, out.parent / "captains.json")
     for m in managers:
         c = caps.get(str(m["entry"]), {})
@@ -809,6 +862,8 @@ def run_one(args):
                  for x in live.get("elements", []) if x["stats"].get("minutes", 0) or x["stats"].get("total_points", 0)},
         # [home team, away team, home score, away score]
         "gw_fixtures": [[f["team_h"], f["team_a"], f.get("team_h_score"), f.get("team_a_score")] for f in gw_fixtures],
+        # Form tab: {"gws": [final gameweeks], "pts": {player id: [points per gameweek, null if no minutes]}}
+        "form": {"gws": done, "pts": form_pts},
         "managers": managers,
     }
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1412,6 +1467,84 @@ function playerInsights(S) {
   return { players, teams: teamRows, positions: posRows, missing, leagueFavs, managers: N };
 }
 
+/* ------------------------------------------------------------ form */
+
+/* The Form tab. Not a points prediction: how sure we can be that a player, club or
+   manager is in consistent form, from the last FORM_N final gameweeks, set against
+   how steady they have been all season. Every threshold is defined here, once.
+     A "return" is a gameweek of 5+ points (roughly a goal or assist on top of appearance
+     points, or a clean sheet with bonus).
+     Confidence (players): High = 3+ returns and 4+ appearances in the window;
+       Medium = 2 returns; Low = fewer. Rated only with 3+ appearances in the window.
+     Trend: window average minus season average, per appearance. Rising at +1.5 or more,
+       fading at -1.5 or less, otherwise level (managers: 5 points; clubs: 0.5 league points a match).
+     Managers use weekly points after hits; steadiness steady up to 10, mixed up to 16.
+     Steadiness (season): sample standard deviation (sdev) of points per appearance,
+       with 4+ appearances. Steady up to 2.5, mixed up to 4, boom or bust above. */
+const FORM_N = 5, RETURN_PTS = 5, TREND_STEP = 1.5, TREND_STEP_MANAGER = 5;
+const trendOf = (d, step = TREND_STEP) => (d == null ? null : d >= step ? "rising" : d <= -step ? "fading" : "level");
+const steadyOf = (sd) => (sd == null ? null : sd <= 2.5 ? "steady" : sd <= 4 ? "mixed" : "boom or bust");
+
+function formView(S) {
+  const F = S.b.form;
+  if (!F || !Array.isArray(F.gws) || F.gws.length < 3) return null;
+  const gws = F.gws, win = gws.slice(-FORM_N), wi = gws.length - win.length;
+  const own = {};
+  S.M.forEach((m) => { const sq = m.squad || m.picks; if (sq) sq.picks.forEach((p) => { own[p[0]] = (own[p[0]] || 0) + 1; }); });
+
+  const players = Object.entries(F.pts).map(([id, arr]) => {
+    const p = S.P.get(+id); if (!p) return null;
+    const season = arr.filter((x) => x != null), last = arr.slice(wi), played = last.filter((x) => x != null);
+    if (played.length < 3) return null;
+    const avg5 = mean(played), avgS = mean(season), returns = played.filter((x) => x >= RETURN_PTS).length;
+    const conf = returns >= 3 && played.length >= 4 ? "High" : returns >= 2 ? "Medium" : "Low";
+    const sd = season.length >= 4 ? sdev(season) : null;
+    return {
+      id: p.id, name: p.name, club: teamShort(S, p.team), pos: POS[p.pos], cost: p.cost, news: p.news, status: p.status,
+      last, played: played.length, avg5: r1(avg5), returns, conf, confN: { High: 3, Medium: 2, Low: 1 }[conf],
+      avgSeason: r1(avgS), trend: r1(avg5 - avgS), trendLabel: trendOf(avg5 - avgS),
+      apps: season.length, sd: sd == null ? null : r1(sd), steady: steadyOf(sd), returnRate: Math.round(season.filter((x) => x >= RETURN_PTS).length / season.length * 100),
+      leagueOwn: own[p.id] || 0, leagueOwnPct: Math.round((own[p.id] || 0) / S.M.length * 100),
+    };
+  }).filter(Boolean);
+
+  /* Clubs: league points per match over their last FORM_N results against the whole season */
+  const res = new Map([...S.teams.keys()].map((id) => [id, []]));
+  (S.b.results || []).slice().sort((a, b) => a[0] - b[0]).forEach(([ev, h, a, hs, as]) => {
+    if (hs == null || as == null) return;
+    if (res.has(h)) res.get(h).push({ ev, opp: a, venue: "H", gf: hs, ga: as });
+    if (res.has(a)) res.get(a).push({ ev, opp: h, venue: "A", gf: as, ga: hs });
+  });
+  const ptsOf = (r) => (r.gf > r.ga ? 3 : r.gf === r.ga ? 1 : 0);
+  const clubs = [...res.entries()].filter(([, rs]) => rs.length >= 3).map(([id, rs]) => {
+    const last = rs.slice(-FORM_N), ppg5 = mean(last.map(ptsOf)), ppgS = mean(rs.map(ptsOf));
+    return {
+      id, club: teamShort(S, id), name: S.teams.get(id).name,
+      results: last.map((r) => ({ res: r.gf > r.ga ? "W" : r.gf < r.ga ? "L" : "D", score: `${r.gf}-${r.ga}`, opp: teamShort(S, r.opp), venue: r.venue, ev: r.ev })),
+      formPts: sum(last.map(ptsOf)), of: last.length * 3, gf5: sum(last.map((r) => r.gf)), ga5: sum(last.map((r) => r.ga)), cs5: last.filter((r) => r.ga === 0).length,
+      ppg5: r1(ppg5), ppgSeason: r1(ppgS), trend: r1(ppg5 - ppgS), trendLabel: ppg5 - ppgS >= 0.5 ? "rising" : ppg5 - ppgS <= -0.5 ? "fading" : "level",
+    };
+  }).sort((a, b) => b.formPts - a.formPts || (b.gf5 - b.ga5) - (a.gf5 - a.ga5));
+
+  /* Managers: weekly points after hits, the window against the season and the league average */
+  const netOf = (m, g) => { const h = m.hist.get(g); return h ? h.pts - h.cost : null; };
+  const lgAvg = new Map(S.gws.map((g) => { const v = S.M.map((m) => netOf(m, g)).filter((x) => x != null); return [g, v.length ? mean(v) : null]; }));
+  const mg = S.gws.slice(-FORM_N);
+  const managers = S.M.map((m) => {
+    const net = (g) => netOf(m, g);
+    const season = S.gws.map(net).filter((x) => x != null), last = mg.map(net), played = last.filter((x) => x != null);
+    if (played.length < 3) return null;
+    const avg5 = mean(played), avgS = mean(season), beat = mg.filter((g) => net(g) != null && lgAvg.get(g) != null && net(g) > lgAvg.get(g)).length;
+    const sd = season.length >= 4 ? sdev(season) : null;
+    return {
+      name: m.name, team: m.team, last, avg5: r1(avg5), avgSeason: r1(avgS), trend: r1(avg5 - avgS), trendLabel: trendOf(avg5 - avgS, TREND_STEP_MANAGER),
+      beat, of: played.length, sd: sd == null ? null : r1(sd), steady: sd == null ? null : sd <= 10 ? "steady" : sd <= 16 ? "mixed" : "boom or bust",
+    };
+  }).filter(Boolean).sort((a, b) => b.avg5 - a.avg5);
+
+  return { gws: win, managerGws: mg, players, clubs, managers, rules: { window: FORM_N, returnPts: RETURN_PTS, trendStep: TREND_STEP } };
+}
+
 /* ------------------------------------------------------------ newsletter */
 
 /* Every figure in the newsletter, in one place. The written columns are
@@ -1599,6 +1732,14 @@ function demoBundle() {
   const live = {};
   elements.forEach((e) => { const starter = e[7] > 400; const mins = starter ? (R() < 0.85 ? 90 : ri(20, 70)) : (R() < 0.3 ? ri(5, 30) : 0); const pts = mins ? Math.max(1, Math.round(norm(e[6], 2.6))) : 0; if (mins || pts) live[e[0]] = [pts, mins]; });
   const lp = (el) => (live[el] || [0])[0];
+  /* Form tab: made-up points per gameweek, the last one matching live */
+  const form = { gws: Array.from({ length: gw }, (_, i) => i + 1), pts: {} };
+  elements.forEach((e) => {
+    if (e[7] <= 0) return;
+    const starter = e[7] > 400, lvl = norm(e[6], 1.2);
+    const arr = form.gws.map((g) => (g === gw ? (live[e[0]] ? lp(e[0]) : null) : (starter ? R() < 0.88 : R() < 0.3) ? Math.max(0, Math.round(norm(lvl + (g > gw - 4 ? norm(0, 1) : 0), 2.8))) : null));
+    if (arr.some((x) => x != null)) form.pts[e[0]] = arr;
+  });
   const names = ["Priya Nair", "Tom Okafor", "Hannah Reid", "Marcus Chen", "Ellie Fraser", "Sam Patel", "Jonny Burke", "Aisha Mensah", "Callum Grant", "Leah Murray", "Dev Sharma", "Rory McLeod"];
   const tnames = ["Nair Necessities", "Okafor Granted", "Reid Alert", "Chen Reaction", "Fraser Rangers", "Patel Power", "Burke Lane FC", "Mensah Sana", "Grant Thy Wish", "Murray Christmas", "Sharma Chameleon", "McLeod of Hope"];
   const byPos = (p) => elements.filter((e) => e[3] === p);
@@ -1638,11 +1779,11 @@ function demoBundle() {
     for (let k = 0; k < h9[6]; k++) { const inn = order[ri(0, 10)][0]; const out = pick(byPos(S_pos(elements, inn))).at(0); transfers.push([inn, out, gw]); }
     return { entry: 1000 + mi, name: n, team: tnames[mi], history, chips, picks: pk, prev: pk, squad: pk, transfers };
   });
-  return { v: 1, demo: true, fetched: "2026-10-28T09:00+00:00", league: { id: 0, name: "Example League" }, gw, squad_gw: gw, events, teams, elements, fixtures, live, managers };
+  return { v: 1, demo: true, fetched: "2026-10-28T09:00+00:00", league: { id: 0, name: "Example League" }, gw, squad_gw: gw, events, teams, elements, fixtures, live, form, managers };
 }
 function S_pos(elements, id) { const e = elements.find((x) => x[0] === id); return e ? e[3] : 1; }
 
-if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, playerInsights, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
+if (typeof module !== "undefined") module.exports = { build, validateBundle, tableAt, rankOf, spanStats, insights, gameweek, advise, freeTransferEstimate, payloadWeekly, payloadTrend, payloadAdvice, payloadNewsletter, playerInsights, formView, numberCheck, demoBundle, leagueAvg, avgOf, ordinal, POS, CHIP };
 
 </script>
 <script>
@@ -1747,8 +1888,13 @@ const EMAIL = (() => {
       box((Cl.players_column || []).map((t) => `<p style="margin:0 0 10px;font-family:${FONT};font-size:14px;line-height:1.5;color:${INK}">${rich(t)}</p>`).join("")),
       `<tr>${td(`<a href="${FPL}" style="font-family:${FONT};font-size:11px;color:${PURPLE};text-decoration:underline">Fantasy Premier League, Official Fantasy Football Game of the Premier League</a>`, `padding:16px 0 0;text-align:center`, `align="center"`)}</tr>`,
     ].join("");
-    /* Outer wrapper: fixed 640px, white, left-aligned so it sits naturally under a greeting typed above it. */
-    const html = `<table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-collapse:collapse;width:${W}px;max-width:100%;background:#ffffff;font-family:${FONT};color:${INK}">${rows}</table>`;
+    /* Outer wrapper: the whole issue in ONE borderless cell of a one-cell table (fixed 640px, white,
+       left-aligned). Outlook keeps a pasted single-cell table together as one block, the same trick as
+       pasting into a Word one-cell table with the borders set to none. Borders are off three ways
+       (attribute, style, mso) because Outlook desktop and Word each honour a different one. */
+    const nb = "border:none;mso-border-alt:none;";
+    const inner = `<table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-collapse:collapse;width:${W}px;background:#ffffff;font-family:${FONT};color:${INK}">${rows}</table>`;
+    const html = `<table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-collapse:collapse;${nb}width:${W}px;max-width:100%;background:#ffffff"><tr><td width="${W}" valign="top" bgcolor="#ffffff" style="${nb}padding:0;width:${W}px;vertical-align:top;background:#ffffff">${inner}</td></tr></table>`;
 
     /* Plain-text version, for clients that refuse formatting */
     const T = [];
@@ -1825,8 +1971,8 @@ function setBundle(b, { save } = {}) {
 }
 
 function splitBundle(b) {
-  const { elements, teams, fixtures, events, ...rest } = b;
-  return { players: { elements, teams, fixtures, events }, league: rest };
+  const { elements, teams, fixtures, events, form, ...rest } = b;
+  return { players: { elements, teams, fixtures, events, form }, league: rest };
 }
 
 async function persist(b) {
@@ -2203,7 +2349,11 @@ function renderBoard() {
   if (B.demo) pills.push(`<span class="pill demo">Example data</span>`);
   else {
     pills.push(`<span class="pill${e.checked ? "" : " warn"}">GW${S.gw} ${e.checked ? "final" : "not final"}</span>`);
-    pills.push(`<span class="pill" title="When the data was fetched">Fetched ${esc(fmtDate(B.fetched))}</span>`);
+    const cur = B.events.find((x) => x.current);
+    if (cur && cur.id > S.gw) pills.push(`<span class="pill" title="Reports, the newsletter and the Form tab move on once FPL marks this gameweek final, usually the morning after its last match.">GW${cur.id} in progress</span>`);
+    const age = (Date.now() - new Date(B.fetched).getTime()) / 3600e3;
+    pills.push(`<span class="pill${age > 36 ? " warn" : ""}" title="When the data was fetched${age > 36 ? ": the morning fetch hasn't produced anything newer" : ""}">${age > 36 ? "Stale: " : ""}Fetched ${esc(fmtDate(B.fetched))}</span>`);
+    if (IS_OWNER && isMain() && NEWS && NEWS.gw) pills.push(`<span class="pill" title="The latest newsletter on the Newsletter tab">Newsletter GW${esc(NEWS.gw)}</span>`);
   }
   if (nx && nx.deadline) pills.push(`<span class="pill">GW${nx.id} deadline ${esc(fmtDate(nx.deadline))}</span>`);
   if (LEAGUES.length > 1) {
@@ -2450,7 +2600,8 @@ function renderGameweek() {
 
 /* ------------------------------------------------------------ insights view */
 
-let INS = null, insSort = { teams: { k: "rank", d: 1 }, players: { k: "pts", d: -1 } }, insPos = "";
+let INS = null, insSort = { teams: { k: "rank", d: 1 }, players: { k: "pts", d: -1 }, fplayers: { k: "avg5", d: -1 }, fclubs: { k: "formPts", d: -1 }, fmanagers: { k: "avg5", d: -1 } }, insPos = "";
+let FORM = null, formPos = "";
 function renderInsights() {
   INS = playerInsights(S);
   $("#ins-empty").hidden = !!INS; $("#ins-body").hidden = !INS;
@@ -2469,7 +2620,7 @@ function insSortable(table, which, render) {
   $$("th[data-k]", table).forEach((th) => {
     const st = insSort[which];
     th.setAttribute("aria-sort", th.dataset.k === st.k ? (st.d > 0 ? "ascending" : "descending") : "none");
-    th.querySelector("button").onclick = () => { const k = th.dataset.k; if (k === st.k) st.d *= -1; else { st.k = k; st.d = ["rank", "name", "ga", "l", "cost"].includes(k) ? 1 : -1; } render(); };
+    th.querySelector("button").onclick = () => { const k = th.dataset.k; if (k === st.k) st.d *= -1; else { st.k = k; st.d = ["rank", "name", "ga", "l", "cost", "sd", "ga5"].includes(k) ? 1 : -1; } render(); };
   });
 }
 const cmp = (k, d) => (a, b) => { const x = a[k] ?? -1e9, y = b[k] ?? -1e9; return (typeof x === "string" ? x.localeCompare(y) : x - y) * d; };
@@ -2492,6 +2643,50 @@ function insPlayers() {
     <td class="num">${p.goals}</td><td class="num">${p.assists}</td><td class="num">${p.xgi}</td><td class="num ${p.gaVsXgi >= 1.5 ? "over" : p.gaVsXgi <= -1.5 ? "under" : ""}">${signed(p.gaVsXgi)}</td>
     <td class="num">${p.cs}</td><td class="num">${p.bonus}</td><td class="num">${p.dc}</td><td class="num">${p.leagueOwnPct}%</td><td class="num muted">${p.globalOwn}%</td></tr>`).join("") || `<tr><td class="l muted" colspan="17">No players match.</td></tr>`;
   insSortable(t, "players", insPlayers);
+}
+
+/* ------------------------------------------------------------ form view (every figure from core.js formView) */
+
+function renderForm() {
+  FORM = formView(S);
+  $("#form-empty").hidden = !!FORM; $("#form-body").hidden = !FORM;
+  if (!FORM) return;
+  const R = FORM.rules, g = FORM.gws;
+  $("#form-note").textContent = `Not a points prediction: how sure we can be that a player is in consistent form, from GW${g[0]} to GW${g[g.length - 1]}, set against their whole season.`;
+  $("#form-key").textContent = `Return: a gameweek of ${R.returnPts}+ points. Confidence: High = 3+ returns in 4+ appearances, Medium = 2 returns, Low = fewer; players need 3+ appearances in the window to be rated. vs season: average per appearance in the window minus the season average. Steadiness: the spread of weekly points all season (lower is steadier). A dashed box is a gameweek without minutes. Click a column to sort. Top 50 shown.`;
+  $("#form-clubs-wrap").hidden = !FORM.clubs.length;
+  formPlayers(); formClubs(); formManagers();
+}
+const l5 = (arr, isRet) => `<span class="l5">${arr.map((v) => (v == null ? `<span class="x" title="No minutes">–</span>` : `<span class="${isRet(v) ? "r" : ""}">${v}</span>`)).join("")}</span>`;
+const trendCell = (d, label) => `<td class="num"><span class="tr ${label}" title="${label}">${signed(d)}</span></td>`;
+function formPlayers() {
+  const t = $("#form-players"), st = insSort.fplayers, minConf = +$("#form-conf").value, ownF = $("#form-own").value;
+  $$("#form-posf button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.p === formPos)));
+  const rows = FORM.players.filter((p) => (!formPos || p.pos === formPos) && p.confN >= minConf && (!ownF || (ownF === "y" ? p.leagueOwn > 0 : p.leagueOwn === 0)))
+    .sort((a, b) => cmp(st.k, st.d)(a, b) || b.avg5 - a.avg5).slice(0, 50);
+  t.querySelector("tbody").innerHTML = rows.map((p) => `<tr><td class="l"><b style="color:var(--ink);font-weight:500">${esc(p.name)}</b> <span class="muted">${esc(p.club)}</span>${p.news ? `<span class="badge flag" title="${esc(p.news)}">news</span>` : ""}</td><td class="l muted">${p.pos}</td>
+    <td class="num">${p.cost.toFixed(1)}</td><td class="l">${l5(p.last, (v) => v >= FORM.rules.returnPts)}</td><td class="num"><b style="color:var(--ink)">${p.avg5}</b></td><td class="num">${p.returns}/${p.played}</td>
+    <td class="num"><span class="conf ${p.conf}">${p.conf}</span></td>${trendCell(p.trend, p.trendLabel)}<td class="num">${p.avgSeason}</td>
+    <td class="num" title="${p.steady ? `Spread ${p.sd} points over ${p.apps} appearances` : "Too few appearances"}">${p.steady ? `${esc(p.steady)} <span class="muted">${p.sd}</span>` : "–"}</td><td class="num">${p.returnRate}%</td><td class="num">${p.leagueOwnPct}%</td></tr>`).join("")
+    || `<tr><td class="l muted" colspan="12">No players match.</td></tr>`;
+  insSortable(t, "fplayers", formPlayers);
+}
+function formClubs() {
+  const t = $("#form-clubs"), st = insSort.fclubs;
+  const rows = FORM.clubs.slice().sort((a, b) => cmp(st.k, st.d)(a, b) || b.formPts - a.formPts);
+  t.querySelector("tbody").innerHTML = rows.map((c) => `<tr><td class="l"><div class="who"><b>${esc(c.name)}</b><span>${esc(c.club)}</span></div></td>
+    <td class="l"><span class="frm">${c.results.map((r) => `<span class="${r.res}" title="GW${r.ev}: ${r.venue === "H" ? "v" : "at"} ${esc(r.opp)} ${r.score}">${r.res}</span>`).join("")}</span></td>
+    <td class="num"><b style="color:var(--ink)">${c.formPts}</b><span class="muted">/${c.of}</span></td><td class="num">${c.gf5}</td><td class="num">${c.ga5}</td><td class="num">${c.cs5}</td>
+    <td class="num">${c.ppg5}</td><td class="num">${c.ppgSeason}</td>${trendCell(c.trend, c.trendLabel)}</tr>`).join("");
+  insSortable(t, "fclubs", formClubs);
+}
+function formManagers() {
+  const t = $("#form-managers"), st = insSort.fmanagers;
+  const rows = FORM.managers.slice().sort((a, b) => cmp(st.k, st.d)(a, b) || b.avg5 - a.avg5);
+  t.querySelector("tbody").innerHTML = rows.map((m) => `<tr${m.name === PREF.me ? ' class="me"' : ""}><td class="l"><div class="who"><b>${esc(m.name)}</b><span>${esc(m.team)}</span></div></td>
+    <td class="l">${l5(m.last, () => false)}</td><td class="num"><b style="color:var(--ink)">${m.avg5}</b></td><td class="num">${m.beat}/${m.of}</td>${trendCell(m.trend, m.trendLabel)}
+    <td class="num">${m.avgSeason}</td><td class="num" title="${m.sd != null ? `Spread ${m.sd} points a week` : ""}">${m.steady ? `${esc(m.steady)} <span class="muted">${m.sd}</span>` : "–"}</td></tr>`).join("");
+  insSortable(t, "fmanagers", formManagers);
 }
 
 /* ------------------------------------------------------------ transfers view */
@@ -2642,7 +2837,7 @@ async function copyText(text, btn) {
 
 /* ------------------------------------------------------------ routing and wiring */
 
-const VIEWS = ["league", "gameweek", "insights", "transfers", "newsletter", "write-ups", "data"];
+const VIEWS = ["league", "gameweek", "insights", "form", "transfers", "newsletter", "write-ups", "data"];
 function route() {
   const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "league";
   $$("[data-view]").forEach((x) => (x.hidden = x.dataset.view !== v));
@@ -2652,7 +2847,7 @@ function route() {
 }
 
 function renderAll() {
-  renderBoard(); renderLeague(); renderGameweek(); renderInsights(); renderTransfers(); renderWriter(); loadedInfo();
+  renderBoard(); renderLeague(); renderGameweek(); renderInsights(); renderForm(); renderTransfers(); renderWriter(); loadedInfo();
 }
 
 function wire() {
@@ -2667,6 +2862,9 @@ function wire() {
   $("#span-from").onchange = spanChange; $("#span-to").onchange = spanChange;
   $$("#ins-posf button").forEach((b) => (b.onclick = () => { insPos = b.dataset.p; insPlayers(); }));
   $("#ins-min").onchange = () => insPlayers();
+  $$("#form-posf button").forEach((b) => (b.onclick = () => { formPos = b.dataset.p; formPlayers(); }));
+  $("#form-conf").onchange = () => formPlayers();
+  $("#form-own").onchange = () => formPlayers();
   $("#adv-who").onchange = (e) => { adv.who = e.target.value; adv.ft = null; renderTransfers(); };
   $$("#adv-h button").forEach((b) => (b.onclick = () => { adv.h = +b.dataset.h; PREF.h = adv.h; savePrefs(); renderTransfers(); }));
   $("#adv-ft").onchange = (e) => { const v = Math.max(0, Math.min(5, Math.round(+e.target.value || 0))); adv.ft = v; renderTransfers(); };

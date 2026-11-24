@@ -30,8 +30,8 @@ if (cmd === "info") {
   console.log("Wrote " + b);
 } else if (cmd === "split") {
   const B = read(a);
-  const { elements, teams, fixtures, events, ...rest } = B;
-  const players = JSON.stringify({ elements, teams, fixtures, events });
+  const { elements, teams, fixtures, events, form, ...rest } = B;
+  const players = JSON.stringify({ elements, teams, fixtures, events, form });
   const league = JSON.stringify(rest);
   if (players.length > 240000 || league.length > 240000) { console.error("Too big for one stored document."); process.exit(1); }
   fs.mkdirSync(b, { recursive: true });
@@ -51,7 +51,7 @@ if (cmd === "info") {
     if (C.validateBundle(B)) return;
     list.push({ id: B.league.id, name: B.league.name, managers: B.managers.length, primary: i === 0, fetched: B.fetched });
     if (i > 0) {
-      const { elements, teams, fixtures, events, ...rest } = B;
+      const { elements, teams, fixtures, events, form, ...rest } = B;
       const league = JSON.stringify(rest);
       if (league.length > 240000) { console.error(`League ${id} is too big to store.`); return; }
       fs.writeFileSync(path.join(b, `league_${B.league.id}.json`), JSON.stringify({ fetched: B.fetched, json: league }));

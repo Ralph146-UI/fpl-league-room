@@ -146,7 +146,12 @@ const doc = new Document({
   numbering: { config: [{ reference: "dash", levels: [{ level: 0, format: LevelFormat.BULLET, text: "-", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 400, hanging: 280 } } } }] }] },
   sections: [{
     properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
-    children: [header, columns, para(run(""), { after: 200 }), sideBySide, para(run(""), { after: 200 }), players, footer],
+    /* The whole issue sits in one borderless single-cell table, so clicking into it and selecting the table
+       picks up everything at once for pasting into Outlook. A table cell can't end on a table, hence the final paragraph. */
+    children: [table([PAGE_W], [new TableRow({ children: [cell(
+      [header, columns, para(run(""), { after: 200 }), sideBySide, para(run(""), { after: 200 }), players, footer],
+      { w: PAGE_W, borders: { top: none, bottom: none, left: none, right: none }, margins: { top: 0, bottom: 0, left: 0, right: 0 }, valign: VerticalAlign.TOP },
+    )] })])],
   }],
 });
 

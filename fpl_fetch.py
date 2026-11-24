@@ -184,6 +184,16 @@ def run_one(args):
 
     out = HERE / args.out
     done = sorted(e["id"] for e in events if e.get("finished") and e.get("data_checked") and e["id"] <= gw)
+
+    # Form tab: every player's points in each final gameweek this season (null = didn't play).
+    # One request per gameweek, cached for a day, so the second league reuses the first's.
+    form_pts = {}
+    for i, g in enumerate(done):
+        lv = get(f"/event/{g}/live/", ttl=86400) or {"elements": []}
+        for x in lv.get("elements", []):
+            s = x["stats"]
+            if s.get("minutes", 0):
+                form_pts.setdefault(str(x["id"]), [None] * len(done))[i] = s.get("total_points", 0)
     caps = captain_history(rows, done, out.parent / "captains.json")
     for m in managers:
         c = caps.get(str(m["entry"]), {})
@@ -224,6 +234,8 @@ def run_one(args):
                  for x in live.get("elements", []) if x["stats"].get("minutes", 0) or x["stats"].get("total_points", 0)},
         # [home team, away team, home score, away score]
         "gw_fixtures": [[f["team_h"], f["team_a"], f.get("team_h_score"), f.get("team_a_score")] for f in gw_fixtures],
+        # Form tab: {"gws": [final gameweeks], "pts": {player id: [points per gameweek, null if no minutes]}}
+        "form": {"gws": done, "pts": form_pts},
         "managers": managers,
     }
     out.parent.mkdir(parents=True, exist_ok=True)

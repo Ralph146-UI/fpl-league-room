@@ -245,6 +245,11 @@ details summary{cursor:pointer;color:var(--accent);font-size:.88rem}
 .fd.d3{background:var(--sunk);color:var(--muted)}
 .fd.d4,.fd.d5{background:var(--bad-soft);color:var(--bad)}
 .frm{font-family:var(--mono);font-size:.74rem;letter-spacing:.06em}
+.l5{display:inline-flex;gap:3px}.l5 span{display:inline-block;min-width:1.9em;text-align:center;font-family:var(--mono);font-size:.72rem;padding:1px 3px;border-radius:3px;background:var(--sunk);color:var(--muted)}
+.l5 span.r{background:var(--good-soft);color:var(--good)}.l5 span.x{background:transparent;border:1px dashed var(--line)}
+.conf{font-family:var(--mono);font-size:.72rem;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.conf.High{background:var(--good-soft);color:var(--good)}.conf.Medium{background:var(--warn-soft);color:var(--warn)}.conf.Low{background:var(--sunk);color:var(--muted)}
+.tr.rising{color:var(--good)}.tr.fading{color:var(--bad)}.tr.level{color:var(--muted)}
 .frm .W{color:var(--good)}.frm .L{color:var(--bad)}.frm .D{color:var(--muted)}
 .vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 @media (max-width:720px){.vs{grid-template-columns:1fr}}
@@ -296,7 +301,7 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
       <div class="you"><label for="me">You</label><select id="me"><option value="">Pick your name</option></select></div>
     </div>
     <nav class="tabs" aria-label="Views">
-      <a href="#league" data-v="league">League</a><a href="#gameweek" data-v="gameweek">Gameweek</a><a href="#insights" data-v="insights">Insights</a><a href="#transfers" data-v="transfers">Transfers</a><a href="#newsletter" data-v="newsletter">Newsletter</a><a href="#write-ups" data-v="write-ups">Write-ups</a><a href="#data" data-v="data">Data</a>
+      <a href="#league" data-v="league">League</a><a href="#gameweek" data-v="gameweek">Gameweek</a><a href="#insights" data-v="insights">Insights</a><a href="#form" data-v="form">Form</a><a href="#transfers" data-v="transfers">Transfers</a><a href="#newsletter" data-v="newsletter">Newsletter</a><a href="#write-ups" data-v="write-ups">Write-ups</a><a href="#data" data-v="data">Data</a>
     </nav>
   </div>
 </div>
@@ -420,6 +425,44 @@ footer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);padd
             <th data-k="per90"><button type="button">Pts/90</button></th><th data-k="form"><button type="button">Form</button></th><th data-k="mins"><button type="button">Mins</button></th>
             <th data-k="goals"><button type="button">G</button></th><th data-k="assists"><button type="button">A</button></th><th data-k="xgi"><button type="button">xGI</button></th><th data-k="gaVsXgi"><button type="button">G+A vs xGI</button></th>
             <th data-k="cs"><button type="button">CS</button></th><th data-k="bonus"><button type="button">Bonus</button></th><th data-k="dc"><button type="button">Def con</button></th><th data-k="leagueOwnPct"><button type="button">League</button></th><th data-k="globalOwn"><button type="button">Global</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div class="view" data-view="form" hidden>
+    <p class="muted" id="form-empty" hidden>Form needs at least three final gameweeks of player points. They arrive with the next automatic fetch.</p>
+    <div class="view" id="form-body" style="gap:36px">
+      <section>
+        <div class="sechead"><h2>Players in form</h2><p id="form-note">Not a points prediction: how sure we can be that a player is in consistent form.</p></div>
+        <div class="controls"><div class="seg" id="form-posf"><button type="button" data-p="">All</button><button type="button" data-p="GKP">GKP</button><button type="button" data-p="DEF">DEF</button><button type="button" data-p="MID">MID</button><button type="button" data-p="FWD">FWD</button></div>
+          <div class="field"><label for="form-conf">Confidence</label><select id="form-conf"><option value="3">High only</option><option value="2" selected>High and medium</option><option value="1">Any</option></select></div>
+          <div class="field"><label for="form-own">Owned in this league</label><select id="form-own"><option value="">Either</option><option value="y">Owned</option><option value="n">Not owned</option></select></div></div>
+        <p class="muted" style="font-size:.82rem" id="form-key"></p>
+        <div class="tablewrap"><table id="form-players">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Player</button></th><th class="l">Pos</th><th data-k="cost"><button type="button">£m</button></th>
+            <th class="l">Last 5 GWs</th><th data-k="avg5" aria-sort="descending"><button type="button">Avg</button></th><th data-k="returns"><button type="button">Returns</button></th>
+            <th data-k="confN"><button type="button">Confidence</button></th><th data-k="trend"><button type="button">vs season</button></th>
+            <th data-k="avgSeason"><button type="button">Season avg</button></th><th data-k="sd"><button type="button">Steadiness</button></th><th data-k="returnRate"><button type="button">Season returns</button></th><th data-k="leagueOwnPct"><button type="button">League</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+      <section id="form-clubs-wrap">
+        <div class="sechead"><h2>Clubs</h2><p>League points from the last five matches against the season rate. Useful for picking defences and attacks to back.</p></div>
+        <div class="tablewrap"><table id="form-clubs">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Club</button></th><th class="l">Last 5</th><th data-k="formPts" aria-sort="descending"><button type="button">Pts</button></th>
+            <th data-k="gf5"><button type="button">GF</button></th><th data-k="ga5"><button type="button">GA</button></th><th data-k="cs5"><button type="button">CS</button></th>
+            <th data-k="ppg5"><button type="button">Pts/match</button></th><th data-k="ppgSeason"><button type="button">Season</button></th><th data-k="trend"><button type="button">vs season</button></th>
+          </tr></thead><tbody></tbody></table></div>
+      </section>
+      <section>
+        <div class="sechead"><h2>Managers</h2><p>Weekly points after hits over the last five gameweeks, against each manager's season and the league average.</p></div>
+        <div class="tablewrap"><table id="form-managers">
+          <thead><tr>
+            <th class="l" data-k="name"><button type="button">Manager</button></th><th class="l">Last 5 GWs</th><th data-k="avg5" aria-sort="descending"><button type="button">Avg</button></th>
+            <th data-k="beat"><button type="button">Beat league avg</button></th><th data-k="trend"><button type="button">vs season</button></th><th data-k="avgSeason"><button type="button">Season avg</button></th><th data-k="sd"><button type="button">Steadiness</button></th>
           </tr></thead><tbody></tbody></table></div>
       </section>
     </div>
